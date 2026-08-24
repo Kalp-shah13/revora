@@ -296,7 +296,6 @@ export default function BusinessDetailDrawer({
         aria-hidden="true"
       />
 
-      {/* Drawer */}
       <aside
         className={cn(
           'fixed right-0 top-0 h-full w-full sm:w-[500px] z-50 flex flex-col',
