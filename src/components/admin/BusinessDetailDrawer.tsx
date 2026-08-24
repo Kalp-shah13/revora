@@ -1,0 +1,307 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { X, ExternalLink, QrCode, Tag, BarChart2, Loader2, Download } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import RatingChart from '@/components/dashboard/RatingChart'
+import { formatPercent, formatRating } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import type { BusinessRow } from './BusinessTable'
+
+interface AnalyticsData {
+  total_scans: number
+  total_scans_today: number
+  average_rating: number
+  conversion_rate: number
+  reviews_this_month: number
+  rating_distribution: { rating: number; count: number }[]
+}
+
+type DrawerTab = 'analytics' | 'tags' | 'qr'
+
+const TABS: { id: DrawerTab; label: string; icon: typeof BarChart2 }[] = [
+  { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+  { id: 'tags',      label: 'Tags',      icon: Tag       },
+  { id: 'qr',        label: 'QR Code',   icon: QrCode    },
+]
+
+export default function BusinessDetailDrawer({
+  business,
+  onClose,
+}: {
+  business: BusinessRow | null
+  onClose: () => void
+}) {
+  const [activeTab,        setActiveTab]        = useState<DrawerTab>('analytics')
+  const [analytics,        setAnalytics]        = useState<AnalyticsData | null>(null)
+  const [tags,             setTags]             = useState<{ id: string; label: string }[]>([])
+  const [qrPng,            setQrPng]            = useState<string | null>(null)
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const [loadingQr,        setLoadingQr]        = useState(false)
+
+  useEffect(() => {
+    if (!business) { setAnalytics(null); setTags([]); setQrPng(null); setActiveTab('analytics'); return }
+
+    setLoadingAnalytics(true)
+    fetch(`/api/admin/businesses/${business.id}/analytics`)
+      .then(r => r.json())
+      .then(d => { if (d.data) setAnalytics(d.data) })
+      .catch(() => {})
+      .finally(() => setLoadingAnalytics(false))
+
+    fetch(`/api/admin/businesses/${business.id}/tags`)
+      .then(r => r.json())
+      .then(d => setTags(d.data ?? []))
+      .catch(() => {})
+
+    setLoadingQr(true)
+    fetch('/api/admin/qr/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ business_id: business.id }),
+    })
+      .then(r => r.json())
+      .then(d => { if (d.data?.png_data_url) setQrPng(d.data.png_data_url) })
+      .catch(() => {})
+      .finally(() => setLoadingQr(false))
+  }, [business])
+
+  if (!business) return null
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 dark:bg-black/60 bg-black/30 z-40 backdrop-blur-sm transition-opacity animate-fade-in-up"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer */}
+      <aside
+        className={cn(
+          'fixed right-0 top-0 h-full w-full sm:w-[500px] z-50 flex flex-col',
+          'dark:bg-slate-950 bg-white',
+          'border-l dark:border-slate-800/60 border-slate-200',
+          'shadow-2xl dark:shadow-black/60',
+          'animate-slide-in-right'
+        )}
+        role="dialog"
+        aria-label={`${business.name} details`}
+        aria-modal="true"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 border-b dark:border-slate-800/60 border-slate-200 shrink-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                <span className="text-blue-400 text-xs font-bold uppercase">{business.name[0]}</span>
+              </div>
+              <h2 className="text-base font-bold dark:text-white text-slate-900 truncate">
+                {business.name}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className="text-xs dark:text-slate-500 text-slate-400 font-mono">
+                /review/{business.slug}
+              </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-xs rounded-full',
+                  business.is_active
+                    ? 'dark:border-emerald-500/30 dark:text-emerald-400 dark:bg-emerald-500/10 border-green-200 text-green-700 bg-green-50'
+                    : 'dark:border-slate-700 dark:text-slate-500 border-slate-200 text-slate-500'
+                )}
+              >
+                {business.is_active ? 'Active' : 'Inactive'}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="text-xs capitalize dark:border-slate-700 dark:text-slate-400 rounded-full"
+              >
+                {business.plan}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 ml-3">
+            <button
+              onClick={() => window.open(`/review/${business.slug}`, '_blank')}
+              className="h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5
+                dark:border-slate-700/50 border-slate-200 border
+                dark:text-slate-300 text-slate-600
+                dark:hover:bg-slate-800 hover:bg-slate-50
+                transition-all duration-200"
+              aria-label="Preview review page"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              Preview
+            </button>
+            <button
+              onClick={onClose}
+              className="h-8 w-8 rounded-lg flex items-center justify-center
+                dark:text-slate-400 text-slate-500
+                dark:hover:bg-slate-800 hover:bg-slate-100
+                transition-all duration-200"
+              aria-label="Close drawer"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        {/* Custom tab bar */}
+        <div className="px-5 pt-3 pb-0 shrink-0">
+          <div className="flex gap-0.5 p-1 rounded-xl dark:bg-slate-900/60 bg-slate-100 border dark:border-slate-800/50 border-slate-200/80">
+            {TABS.map(tab => {
+              const isActive = activeTab === tab.id
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg text-xs font-medium transition-all duration-300',
+                    isActive
+                      ? 'dark:bg-slate-800 bg-white dark:text-white text-slate-900 dark:shadow-sm shadow-sm dark:border-slate-700/40 border border-slate-200/80'
+                      : 'dark:text-slate-500 text-slate-400 dark:hover:text-slate-300 hover:text-slate-600'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div key={activeTab} className="flex-1 overflow-y-auto px-5 py-4 animate-fade-in-up space-y-4">
+
+          {/* Analytics */}
+          {activeTab === 'analytics' && (
+            loadingAnalytics ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="h-20 rounded-xl dark:bg-slate-800 bg-slate-100 animate-pulse" />
+                  ))}
+                </div>
+                <div className="h-40 rounded-xl dark:bg-slate-800 bg-slate-100 animate-pulse" />
+              </div>
+            ) : analytics ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Total Scans',  value: analytics.total_scans,                              sub: `${analytics.total_scans_today} today`,  color: 'blue'   },
+                    { label: 'Avg Rating',   value: formatRating(analytics.average_rating),             sub: 'out of 5 stars',                        color: 'amber'  },
+                    { label: 'Conversion',   value: formatPercent(analytics.conversion_rate),           sub: 'scans → Google',                        color: 'emerald'},
+                    { label: 'This Month',   value: analytics.reviews_this_month,                       sub: 'reviews posted',                        color: 'purple' },
+                  ].map(({ label, value, sub, color }) => (
+                    <div
+                      key={label}
+                      className="stat-card rounded-xl p-3.5 border dark:border-slate-700/40 border-slate-200 group hover:scale-[1.02] transition-all duration-200"
+                    >
+                      <p className="text-xs dark:text-slate-400 text-slate-500 uppercase tracking-wide font-semibold">{label}</p>
+                      <p className={cn(
+                        'text-xl font-bold tabular-nums mt-1',
+                        color === 'blue'    && 'dark:text-blue-300 text-blue-600',
+                        color === 'amber'   && 'dark:text-amber-300 text-amber-600',
+                        color === 'emerald' && 'dark:text-emerald-300 text-emerald-600',
+                        color === 'purple'  && 'dark:text-purple-300 text-purple-600',
+                      )}>{value}</p>
+                      <p className="text-xs dark:text-slate-500 text-slate-400 mt-0.5">{sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="dashboard-card rounded-xl overflow-hidden">
+                  <div className="px-4 pt-3.5 pb-2.5 border-b dark:border-slate-800/60 border-slate-100">
+                    <p className="text-xs font-semibold dark:text-white text-slate-700">Rating Distribution</p>
+                  </div>
+                  <div className="px-4 py-3.5">
+                    <RatingChart data={analytics.rating_distribution} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-sm dark:text-slate-500 text-slate-400">No analytics available</p>
+              </div>
+            )
+          )}
+
+          {/* Tags */}
+          {activeTab === 'tags' && (
+            tags.length === 0 ? (
+              <div className="text-center py-10 space-y-2">
+                <div className="w-12 h-12 rounded-2xl dark:bg-slate-800 bg-slate-100 flex items-center justify-center mx-auto">
+                  <Tag className="h-5 w-5 dark:text-slate-600 text-slate-300" aria-hidden="true" />
+                </div>
+                <p className="text-sm dark:text-slate-400 text-slate-500">No service tags configured</p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((t) => (
+                  <span
+                    key={t.id}
+                    className="px-3 py-1.5 rounded-full text-sm border
+                      dark:border-blue-500/30 dark:text-blue-300 dark:bg-blue-500/10
+                      border-blue-200 text-blue-700 bg-blue-50"
+                  >
+                    {t.label}
+                  </span>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* QR Code */}
+          {activeTab === 'qr' && (
+            loadingQr ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin dark:text-slate-500 text-slate-300" aria-hidden="true" />
+              </div>
+            ) : qrPng ? (
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <div className="p-4 bg-white rounded-2xl shadow-xl dark:shadow-blue-500/10 ring-1 dark:ring-blue-500/20 ring-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrPng}
+                      alt={`QR code for ${business.name}`}
+                      width={192} height={192}
+                      className="rounded-xl block"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const a = document.createElement('a')
+                    a.href = qrPng!
+                    a.download = `${business.slug}-qr.png`
+                    a.click()
+                  }}
+                  className="w-full h-11 rounded-xl border font-medium text-sm flex items-center justify-center gap-2
+                    dark:border-slate-700/50 border-slate-200
+                    dark:text-slate-300 text-slate-600
+                    dark:hover:bg-slate-800 hover:bg-slate-50
+                    transition-all duration-200 active:scale-95"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Download PNG
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-sm dark:text-slate-500 text-slate-400">QR code unavailable</p>
+              </div>
+            )
+          )}
+
+        </div>
+      </aside>
+    </>
+  )
+}
