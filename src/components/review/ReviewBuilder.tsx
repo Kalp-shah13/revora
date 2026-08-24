@@ -52,6 +52,20 @@ const FALLBACK_VARIANTS = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function splitTags(tags: Tag[]): { serviceTags: Tag[]; categoryTags: Tag[] } {
+  // Use tag_type field if present (from DB), otherwise fall back to position
+  const typed = tags as Array<Tag & { tag_type?: string }>
+  const serviceByType  = typed.filter(t => t.tag_type === 'service')
+  const categoryByType = typed.filter(t => t.tag_type === 'category')
+
+  // If tags have proper tag_type set, use them directly
+  if (serviceByType.length > 0 || categoryByType.length > 0) {
+    return {
+      serviceTags:  serviceByType.length > 0 ? serviceByType  : DEFAULT_SERVICE_TAGS,
+      categoryTags: categoryByType.length > 0 ? categoryByType : DEFAULT_CATEGORY_TAGS,
+    }
+  }
+
+  // Legacy fallback: no tag_type set — split by position
   if (tags.length === 0) return { serviceTags: DEFAULT_SERVICE_TAGS, categoryTags: DEFAULT_CATEGORY_TAGS }
   if (tags.length === 1) return { serviceTags: tags, categoryTags: DEFAULT_CATEGORY_TAGS }
   return {

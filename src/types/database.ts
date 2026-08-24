@@ -28,6 +28,7 @@ export interface ServiceTag {
   id: string
   business_id: string
   label: string
+  tag_type: 'service' | 'category'
   created_at: string
 }
 

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   if (!check.authorized) return check.response
 
   try {
-    const { label } = await request.json()
+    const { label, tag_type } = await request.json()
 
     if (!label || typeof label !== 'string') {
       return NextResponse.json({ error: 'label is required' }, { status: 400 })
@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid tag label' }, { status: 400 })
     }
 
+    const type: 'service' | 'category' =
+      tag_type === 'category' ? 'category' : 'service'
+
     const supabase = await createServerSupabaseClient()
     const business = await getBusinessByOwnerId(supabase, check.auth.profile.id)
     if (!business) return NextResponse.json({ error: 'Business not found' }, { status: 404 })
@@ -55,6 +58,7 @@ export async function POST(request: NextRequest) {
     const data = await insertServiceTag(supabase, {
       business_id: business.id,
       label: safeLabel,
+      tag_type: type,
     })
 
     return NextResponse.json({ data }, { status: 201 })
