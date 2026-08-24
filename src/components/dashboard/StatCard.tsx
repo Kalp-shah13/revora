@@ -44,9 +44,9 @@ export default function StatCard({
   subtitle,
   icon: Icon,
   iconColor  = 'text-blue-400',
-  iconBg     = 'bg-blue-500/15',
-  borderColor = 'hover:border-blue-500/30',
-  glowColor  = 'hover:shadow-blue-500/15',
+  iconBg     = 'bg-blue-600/10',
+  borderColor = 'hover:border-blue-600/30',
+  glowColor  = 'hover:shadow-blue-600/15',
   loading,
 }: StatCardProps) {
   const isNumeric = typeof value === 'number'
@@ -103,7 +103,7 @@ export default function StatCard({
       </div>
 
       {/* Bottom accent line — slides in on hover */}
-      <div className="mt-3 h-px w-0 group-hover:w-full transition-all duration-500 rounded-full bg-gradient-to-r from-transparent via-current to-transparent opacity-20" />
+      <div className="mt-3 h-px w-0 group-hover:w-full transition-all duration-500 rounded-full bg-current opacity-20" />
     </div>
   )
 }

@@ -187,11 +187,8 @@ export default function LoginForm({ redirectTo, urlError }: LoginFormProps) {
           type="submit"
           disabled={isPending}
           className={cn(
-            'w-full h-12 rounded-xl font-semibold text-sm text-white',
-            'bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500',
-            'hover:from-blue-500 hover:via-blue-400 hover:to-cyan-400',
+            'w-full h-12 rounded-xl font-semibold text-sm btn-primary-solid',
             'active:scale-[0.98]',
-            'shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50',
             'transition-all duration-200',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
             'flex items-center justify-center gap-2 group'

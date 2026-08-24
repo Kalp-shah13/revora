@@ -333,6 +333,22 @@ button {
 .light .hover\:text-slate-300:hover  { color: #1e293b !important; }
 .light .hover\:bg-slate-800\/60:hover { background-color: rgba(241,245,249,0.9) !important; }
 
+.btn-primary-solid {
+  background: #2563eb;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.18), 0 8px 20px rgba(37, 99, 235, 0.12);
+}
+.btn-primary-solid:hover {
+  background: #1d4ed8;
+}
+.dark .btn-primary-solid {
+  background: #3b82f6;
+  color: #ffffff !important;
+}
+.dark .btn-primary-solid:hover {
+  background: #2563eb;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

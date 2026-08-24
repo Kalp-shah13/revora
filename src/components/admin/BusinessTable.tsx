@@ -30,7 +30,7 @@ interface BusinessTableProps {
 const PLAN_STYLES: Record<string, string> = {
   free:       'dark:border-slate-600/50 dark:text-slate-300 dark:bg-slate-700/30 border-slate-200 text-slate-600 bg-slate-50',
   pro:        'dark:border-blue-500/30 dark:text-blue-300 dark:bg-blue-500/10 border-blue-200 text-blue-700 bg-blue-50',
-  enterprise: 'dark:border-purple-500/30 dark:text-purple-300 dark:bg-purple-500/10 border-purple-200 text-purple-700 bg-purple-50',
+  enterprise: 'dark:border-blue-500/30 dark:text-blue-300 dark:bg-blue-500/10 border-blue-200 text-blue-700 bg-blue-50',
 }
 
 function TableSkeleton() {

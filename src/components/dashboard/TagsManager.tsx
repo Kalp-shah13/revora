@@ -109,12 +109,10 @@ function TagSection({
             onClick={handleAdd}
             disabled={isAdding || !newLabel.trim()}
             className={cn(
-              'h-10 px-3.5 rounded-xl font-semibold text-sm text-white shrink-0',
+              'h-10 px-3.5 rounded-xl font-semibold text-sm btn-primary-solid shrink-0',
               'flex items-center gap-1.5 transition-all duration-200 active:scale-95',
               'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
-              type === 'service'
-                ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/20'
-                : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 shadow-lg shadow-purple-500/20'
+              'disabled:hover:bg-blue-600'
             )}
             aria-label={`Add ${label.toLowerCase()}`}
           >
@@ -140,10 +138,8 @@ function TagSection({
               key={tag.id}
               role="listitem"
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-all',
-                type === 'service'
-                  ? 'dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 border-blue-200 bg-blue-50 text-blue-700'
-                  : 'dark:border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-300 border-purple-200 bg-purple-50 text-purple-700'
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all',
+                'dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 border-blue-200 bg-blue-50 text-blue-700'
               )}
             >
               <span>{tag.label}</span>
@@ -245,7 +241,7 @@ export default function TagsManager({ tags: initialTags, loading }: TagsManagerP
         label="Category Tags"
         description="Experience qualities — customer picks at least 1"
         icon={Grid3X3}
-        accentClass="dark:bg-purple-500/15 dark:border dark:border-purple-500/20 bg-purple-50 border border-purple-100 text-purple-500"
+        accentClass="dark:bg-blue-500/15 dark:border dark:border-blue-500/20 bg-blue-50 border border-blue-100 text-blue-500"
         borderClass="dark:border-slate-700/40 border-slate-200"
         tags={categoryTags}
         onAdd={handleAdd}

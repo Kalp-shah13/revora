@@ -12,8 +12,8 @@ export default async function AdminPage() {
       {/* Page header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-            <ShieldCheck className="h-5 w-5 text-purple-400" aria-hidden="true" />
+          <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center shrink-0">
+            <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold dark:text-white text-slate-900 truncate">
@@ -25,9 +25,9 @@ export default async function AdminPage() {
           </div>
         </div>
         {/* Super Admin badge */}
-        <div className="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 rounded-full px-3 py-1 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-          <span className="text-xs font-medium text-purple-400 hidden sm:block">Super Admin</span>
+        <div className="flex items-center gap-1.5 bg-blue-600/10 border border-blue-600/20 rounded-full px-3 py-1 shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+          <span className="text-xs font-medium text-blue-600 dark:text-blue-400 hidden sm:block">Super Admin</span>
         </div>
       </div>
 

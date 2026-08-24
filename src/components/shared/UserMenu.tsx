@@ -55,7 +55,7 @@ export default function UserMenu({ email, fullName, role }: UserMenuProps) {
           <div className={cn(
             'h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0',
             isAdmin
-              ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
               : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
           )}>
             {initials}
@@ -81,7 +81,7 @@ export default function UserMenu({ email, fullName, role }: UserMenuProps) {
             <span className={cn(
               'w-fit text-xs mt-0.5 px-2 py-0.5 rounded-full border font-medium',
               isAdmin
-                ? 'dark:border-purple-500/30 dark:text-purple-300 dark:bg-purple-500/10 border-purple-200 text-purple-700 bg-purple-50'
+                ? 'dark:border-blue-500/30 dark:text-blue-300 dark:bg-blue-500/10 border-blue-200 text-blue-700 bg-blue-50'
                 : 'dark:border-blue-500/30 dark:text-blue-300 dark:bg-blue-500/10 border-blue-200 text-blue-700 bg-blue-50'
             )}>
               {roleLabel}

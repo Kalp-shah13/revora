@@ -1,19 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, RefreshCw, Search } from 'lucide-react'
 import PlatformStats from './PlatformStats'
 import BusinessTable, { type BusinessRow } from './BusinessTable'
 import CreateBusinessModal from './CreateBusinessModal'
-import BusinessDetailDrawer from './BusinessDetailDrawer'
 import { cn } from '@/lib/utils'
 
 export default function AdminPanel() {
+  const router = useRouter()
   const [businesses,       setBusinesses]       = useState<BusinessRow[]>([])
   const [loading,          setLoading]          = useState(true)
   const [search,           setSearch]           = useState('')
   const [showCreate,       setShowCreate]       = useState(false)
-  const [selectedBusiness, setSelectedBusiness] = useState<BusinessRow | null>(null)
 
   const fetchBusinesses = useCallback(async () => {
     try {
@@ -60,8 +60,8 @@ export default function AdminPanel() {
         {/* Section header */}
         <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3.5 border-b dark:border-slate-800/60 border-slate-200/80 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center">
-              <span className="text-purple-400 text-sm font-bold">B</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center">
+              <span className="text-blue-600 dark:text-blue-400 text-sm font-bold">B</span>
             </div>
             <div>
               <h2 className="text-sm font-semibold dark:text-white text-slate-900">
@@ -91,10 +91,7 @@ export default function AdminPanel() {
             <button
               onClick={() => setShowCreate(true)}
               className={cn(
-                'h-9 px-4 rounded-xl font-semibold text-sm text-white flex items-center gap-1.5',
-                'bg-gradient-to-r from-purple-600 to-blue-500',
-                'hover:from-purple-500 hover:to-blue-400',
-                'shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40',
+                'h-9 px-4 rounded-xl font-semibold text-sm btn-primary-solid flex items-center gap-1.5',
                 'transition-all duration-200 active:scale-95'
               )}
             >
@@ -139,7 +136,7 @@ export default function AdminPanel() {
                 prev.map((b) => b.id === id ? { ...b, is_active: isActive } : b)
               )
             }}
-            onSelect={setSelectedBusiness}
+            onSelect={(business) => router.push(`/admin/businesses/${business.id}`)}
           />
         </div>
       </div>
@@ -149,10 +146,6 @@ export default function AdminPanel() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={fetchBusinesses}
-      />
-      <BusinessDetailDrawer
-        business={selectedBusiness}
-        onClose={() => setSelectedBusiness(null)}
       />
     </div>
   )

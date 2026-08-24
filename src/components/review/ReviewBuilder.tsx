@@ -83,8 +83,8 @@ function StepHeader({ number, title, subtitle, active, done }: {
     <div className="flex items-start gap-3">
       <div className={cn(
         'w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors',
-        done   ? 'bg-green-500 text-white'
-               : active ? 'bg-blue-600 text-white'
+        done   ? 'bg-green-500 !text-white'
+               : active ? 'bg-blue-600 !text-white'
                : 'bg-slate-200 text-slate-400'
       )} aria-hidden="true">
         {done ? '✓' : number}
@@ -112,10 +112,10 @@ function TagPill({ label, selected, onClick }: {
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'w-full text-center px-3 py-3 rounded-2xl text-sm font-medium border-2 transition-all duration-150 leading-snug',
+        'w-full text-center px-2.5 py-2 rounded-lg text-xs font-medium border transition-all duration-150 leading-snug',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
         selected
-          ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]'
+          ? 'bg-blue-600 !text-white border-blue-600 shadow-sm'
           : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50 active:scale-[0.98]'
       )}
     >
@@ -522,7 +522,7 @@ export default function ReviewBuilder({
               className={cn(
                 'w-full h-14 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2',
                 opened
-                  ? 'bg-green-500 text-white'
+                  ? 'bg-green-500 !text-white'
                   : 'bg-slate-100 text-slate-500 border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 active:scale-[0.98]',
                 !editedText.trim() && 'opacity-50 cursor-not-allowed'
               )}

@@ -58,12 +58,12 @@ export default function TagSelector({
               aria-pressed={isSelected}
               aria-label={`${tag.label}${isSelected ? ' — selected' : ''}`}
               className={cn(
-                'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1',
+                'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1',
                 isSelected
-                  ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                  ? 'bg-blue-600 !text-white border-blue-600 shadow-sm'
                   : isDisabled
                   ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300 hover:bg-amber-50 cursor-pointer'
+                  : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50 cursor-pointer'
               )}
             >
               {isSelected && (

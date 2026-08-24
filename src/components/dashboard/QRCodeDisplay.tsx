@@ -143,7 +143,7 @@ export default function QRCodeDisplay() {
           const slug = qrData.review_url.split('/review/')[1]
           if (slug) window.open(`/review/${slug}/qr`, '_blank')
         }}
-        className="w-full h-10 rounded-xl border border-purple-500/30 bg-purple-500/10 text-sm text-purple-300 hover:bg-purple-500/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+        className="w-full h-10 rounded-xl border border-blue-500/30 bg-blue-500/10 text-sm text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2 active:scale-95"
         aria-label="Open print-friendly QR page"
       >
         <Printer className="h-4 w-4" aria-hidden="true" />

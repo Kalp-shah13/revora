@@ -72,7 +72,7 @@ export default function BusinessDetailDrawer({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 dark:bg-black/60 bg-black/30 z-40 backdrop-blur-sm transition-opacity animate-fade-in-up"
+        className="fixed inset-0 z-40 bg-white/20 dark:bg-transparent backdrop-blur-sm transition-opacity animate-fade-in-up"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -81,9 +81,9 @@ export default function BusinessDetailDrawer({
       <aside
         className={cn(
           'fixed right-0 top-0 h-full w-full sm:w-[500px] z-50 flex flex-col',
-          'dark:bg-slate-950 bg-white',
-          'border-l dark:border-slate-800/60 border-slate-200',
-          'shadow-2xl dark:shadow-black/60',
+          'dark:bg-slate-950/62 bg-white/[0.82] backdrop-blur-2xl',
+          'border-l dark:border-white/10 border-white/80',
+          'shadow-[0_24px_80px_rgba(15,23,42,0.18)] dark:shadow-[0_18px_70px_rgba(59,130,246,0.18),0_0_34px_rgba(168,85,247,0.12)]',
           'animate-slide-in-right'
         )}
         role="dialog"
@@ -197,7 +197,7 @@ export default function BusinessDetailDrawer({
                     { label: 'Total Scans',  value: analytics.total_scans,                              sub: `${analytics.total_scans_today} today`,  color: 'blue'   },
                     { label: 'Avg Rating',   value: formatRating(analytics.average_rating),             sub: 'out of 5 stars',                        color: 'amber'  },
                     { label: 'Conversion',   value: formatPercent(analytics.conversion_rate),           sub: 'scans → Google',                        color: 'emerald'},
-                    { label: 'This Month',   value: analytics.reviews_this_month,                       sub: 'reviews posted',                        color: 'purple' },
+                    { label: 'This Month',   value: analytics.reviews_this_month,                       sub: 'reviews posted',                        color: 'blue' },
                   ].map(({ label, value, sub, color }) => (
                     <div
                       key={label}
@@ -209,7 +209,7 @@ export default function BusinessDetailDrawer({
                         color === 'blue'    && 'dark:text-blue-300 text-blue-600',
                         color === 'amber'   && 'dark:text-amber-300 text-amber-600',
                         color === 'emerald' && 'dark:text-emerald-300 text-emerald-600',
-                        color === 'purple'  && 'dark:text-purple-300 text-purple-600',
+                        color === 'blue'    && 'dark:text-blue-300 text-blue-600',
                       )}>{value}</p>
                       <p className="text-xs dark:text-slate-500 text-slate-400 mt-0.5">{sub}</p>
                     </div>

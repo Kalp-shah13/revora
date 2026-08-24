@@ -40,8 +40,8 @@ export default function PlatformStats() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="flex flex-col gap-0.5">
-            <div className="w-1 h-3 rounded-full bg-purple-400" />
-            <div className="w-1 h-1.5 rounded-full bg-purple-400/40" />
+            <div className="w-1 h-3 rounded-full bg-blue-500" />
+            <div className="w-1 h-1.5 rounded-full bg-blue-500/40" />
           </div>
           <h2 className="text-sm sm:text-base font-semibold dark:text-white text-slate-900">
             Platform Overview
@@ -61,7 +61,7 @@ export default function PlatformStats() {
           <RefreshCw
             className={`h-3 w-3 transition-all duration-300 ${
               refreshing
-                ? 'animate-spin text-purple-400'
+                ? 'animate-spin text-blue-500'
                 : 'group-hover:rotate-180'
             }`}
             aria-hidden="true"
@@ -80,10 +80,10 @@ export default function PlatformStats() {
             value: loading ? '—' : (data?.total_businesses ?? 0),
             subtitle: `${data?.active_businesses ?? 0} active`,
             icon: Building2,
-            iconColor: 'text-purple-400',
-            iconBg: 'bg-purple-500/15',
-            borderColor: 'hover:border-purple-500/40',
-            glowColor: 'hover:shadow-purple-500/20',
+            iconColor: 'text-blue-500 dark:text-blue-400',
+            iconBg: 'bg-blue-600/10',
+            borderColor: 'hover:border-blue-600/30',
+            glowColor: 'hover:shadow-blue-600/15',
             delay: 0,
           },
           {
@@ -91,10 +91,10 @@ export default function PlatformStats() {
             value: loading ? '—' : (data?.total_scans ?? 0),
             subtitle: 'all time',
             icon: QrCode,
-            iconColor: 'text-blue-400',
-            iconBg: 'bg-blue-500/15',
-            borderColor: 'hover:border-blue-500/40',
-            glowColor: 'hover:shadow-blue-500/20',
+            iconColor: 'text-blue-500 dark:text-blue-400',
+            iconBg: 'bg-blue-600/10',
+            borderColor: 'hover:border-blue-600/30',
+            glowColor: 'hover:shadow-blue-600/15',
             delay: 60,
           },
           {

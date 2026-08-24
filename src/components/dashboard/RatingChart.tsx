@@ -12,11 +12,11 @@ interface RatingChartProps {
 }
 
 const BAR_COLORS: Record<number, string> = {
-  5: 'bg-gradient-to-r from-emerald-500 to-green-400',
-  4: 'bg-gradient-to-r from-blue-500 to-cyan-400',
-  3: 'bg-gradient-to-r from-amber-500 to-yellow-400',
-  2: 'bg-gradient-to-r from-orange-500 to-amber-400',
-  1: 'bg-gradient-to-r from-red-500 to-rose-400',
+  5: 'bg-emerald-500',
+  4: 'bg-blue-500',
+  3: 'bg-amber-500',
+  2: 'bg-orange-500',
+  1: 'bg-red-500',
 }
 
 const GLOW_COLORS: Record<number, string> = {

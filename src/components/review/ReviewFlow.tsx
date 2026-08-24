@@ -105,7 +105,7 @@ export default function ReviewFlow({
           { size: 'w-3 h-3', color: 'bg-amber-400',   top: '8%',  left: '10%',  delay: '0s'    },
           { size: 'w-2 h-2', color: 'bg-blue-400',    top: '15%', left: '80%',  delay: '0.3s'  },
           { size: 'w-2 h-2', color: 'bg-green-400',   top: '30%', left: '88%',  delay: '0.6s'  },
-          { size: 'w-3 h-3', color: 'bg-purple-400',  top: '55%', left: '6%',   delay: '0.2s'  },
+          { size: 'w-3 h-3', color: 'bg-blue-500',    top: '55%', left: '6%',   delay: '0.2s'  },
           { size: 'w-2 h-2', color: 'bg-pink-400',    top: '70%', left: '82%',  delay: '0.8s'  },
           { size: 'w-2 h-2', color: 'bg-blue-300',    top: '80%', left: '20%',  delay: '0.4s'  },
           { size: 'w-3 h-3', color: 'bg-amber-300',   top: '85%', left: '65%',  delay: '1s'    },
@@ -122,7 +122,7 @@ export default function ReviewFlow({
         {/* ── Party popper illustration ── */}
         <div className="relative mb-5">
           {/* Outer soft circle */}
-          <div className="w-28 h-28 rounded-full bg-purple-100/70 flex items-center justify-center">
+          <div className="w-28 h-28 rounded-full bg-blue-50 flex items-center justify-center">
             {/* Inner circle */}
             <div className="w-20 h-20 rounded-full bg-white shadow-md flex items-center justify-center text-5xl select-none">
               🎉
@@ -157,7 +157,7 @@ export default function ReviewFlow({
         {/* ── Open Google button ── */}
         <button
           onClick={() => window.open(googleReviewLink, '_blank', 'noopener,noreferrer')}
-          className="w-full max-w-sm h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-500/20 mb-5"
+          className="w-full max-w-sm h-12 rounded-2xl btn-primary-solid font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 mb-5"
           aria-label="Open Google Reviews"
         >
           <ExternalLink className="h-4 w-4" aria-hidden="true" />

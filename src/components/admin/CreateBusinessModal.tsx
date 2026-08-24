@@ -22,12 +22,13 @@ interface CreateBusinessModalProps {
 
 const inputCls = cn(
   'w-full h-11 px-4 rounded-xl border text-sm',
-  'dark:bg-slate-900/50 bg-white',
+  'dark:bg-slate-950/35 bg-white/70',
   'dark:text-white text-slate-900',
-  'dark:border-slate-700/50 border-slate-300',
+  'dark:border-white/10 border-white/70',
   'dark:placeholder:text-slate-500 placeholder:text-slate-400',
   'outline-none focus:ring-2 dark:focus:ring-blue-500/30 focus:ring-blue-500/20',
   'dark:focus:border-blue-500/50 focus:border-blue-400',
+  'shadow-sm backdrop-blur-md',
   'transition-all duration-200 disabled:opacity-50'
 )
 
@@ -94,30 +95,27 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
   if (!open) return null
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 dark:bg-black/70 bg-black/40 z-50 backdrop-blur-sm animate-fade-in-up"
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 p-4 backdrop-blur-sm dark:bg-transparent animate-fade-in-up"
+      onMouseDown={event => {
+        if (event.target === event.currentTarget) handleClose()
+      }}
+    >
         <div
           className={cn(
-            'w-full max-w-md rounded-2xl pointer-events-auto',
-            'dark:bg-slate-950 bg-white',
-            'border dark:border-slate-800/60 border-slate-200',
-            'shadow-2xl dark:shadow-black/60',
+            'w-full max-w-md rounded-2xl backdrop-blur-2xl',
+            'dark:bg-slate-950/58 bg-white/[0.78]',
+            'border dark:border-white/10 border-white/80',
+            'shadow-[0_24px_80px_rgba(15,23,42,0.18)] dark:shadow-[0_18px_70px_rgba(59,130,246,0.18),0_0_34px_rgba(168,85,247,0.12)]',
             'animate-fade-in-up'
           )}
+          onMouseDown={event => event.stopPropagation()}
           role="dialog"
           aria-modal="true"
           aria-label="Create Business"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b dark:border-slate-800/60 border-slate-100">
+          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b dark:border-white/10 border-white/70">
             <div>
               <h2 className="text-base font-bold dark:text-white text-slate-900">Create Business</h2>
               <p className="text-xs dark:text-slate-400 text-slate-500 mt-0.5">
@@ -128,7 +126,7 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
               onClick={handleClose}
               className="h-8 w-8 rounded-lg flex items-center justify-center
                 dark:text-slate-400 text-slate-500
-                dark:hover:bg-slate-800 hover:bg-slate-100
+                dark:hover:bg-white/10 hover:bg-white/60
                 transition-all duration-200"
               aria-label="Close modal"
             >
@@ -178,7 +176,7 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
                   disabled={!name || isSubmitting}
                   className="h-11 w-11 rounded-xl border dark:border-slate-700/50 border-slate-200
                     dark:text-slate-400 text-slate-500
-                    dark:hover:bg-slate-800 hover:bg-slate-50
+                    dark:hover:bg-white/10 hover:bg-white/60
                     disabled:opacity-50 transition-all duration-200 shrink-0 flex items-center justify-center"
                   aria-label="Regenerate slug"
                 >
@@ -212,7 +210,7 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
               <div>
                 <label htmlFor="biz-plan" className={labelCls}>Plan</label>
                 <Select value={plan} onValueChange={v => setPlan(v as typeof plan)} disabled={isSubmitting}>
-                  <SelectTrigger id="biz-plan" className="h-11 dark:bg-slate-900/50 dark:border-slate-700/50 dark:text-white rounded-xl">
+                  <SelectTrigger id="biz-plan" className="h-11 bg-white/70 dark:bg-slate-950/35 border-white/70 dark:border-white/10 dark:text-white rounded-xl backdrop-blur-md">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="dark:bg-slate-900 dark:border-slate-700/60">
@@ -230,7 +228,7 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
                   Owner <span className="text-red-400">*</span>
                 </label>
                 <Select value={ownerId} onValueChange={v => setOwnerId(v ?? '')} disabled={isSubmitting || loadingOwners}>
-                  <SelectTrigger id="biz-owner" className="h-11 dark:bg-slate-900/50 dark:border-slate-700/50 dark:text-white rounded-xl">
+                  <SelectTrigger id="biz-owner" className="h-11 bg-white/70 dark:bg-slate-950/35 border-white/70 dark:border-white/10 dark:text-white rounded-xl backdrop-blur-md">
                     <SelectValue placeholder={loadingOwners ? 'Loading…' : 'Select owner'} />
                   </SelectTrigger>
                   <SelectContent className="dark:bg-slate-900 dark:border-slate-700/60">
@@ -269,9 +267,9 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
                 onClick={handleClose}
                 disabled={isSubmitting}
                 className="flex-1 h-11 rounded-xl border font-semibold text-sm
-                  dark:border-slate-700/50 border-slate-200
+                  dark:border-white/10 border-white/70
                   dark:text-slate-300 text-slate-600
-                  dark:hover:bg-slate-800 hover:bg-slate-50
+                  dark:hover:bg-white/10 hover:bg-white/60
                   transition-all duration-200 disabled:opacity-50"
               >
                 Cancel
@@ -280,10 +278,7 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
                 type="submit"
                 disabled={isSubmitting}
                 className={cn(
-                  'flex-1 h-11 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2',
-                  'bg-gradient-to-r from-purple-600 to-blue-500',
-                  'hover:from-purple-500 hover:to-blue-400',
-                  'shadow-lg shadow-purple-500/25',
+                  'flex-1 h-11 rounded-xl font-semibold text-sm btn-primary-solid flex items-center justify-center gap-2',
                   'transition-all duration-200 active:scale-95',
                   'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100'
                 )}
@@ -298,6 +293,5 @@ export default function CreateBusinessModal({ open, onClose, onCreated }: Create
           </form>
         </div>
       </div>
-    </>
   )
 }

@@ -15,9 +15,9 @@ interface DashboardTabsProps {
 }
 
 const TABS = [
-  { id: 'feedback', label: 'Feedback', icon: MessageSquare, color: 'text-orange-400', glow: 'shadow-orange-500/20' },
-  { id: 'tags',     label: 'Tags',     icon: Tag,           color: 'text-blue-400',   glow: 'shadow-blue-500/20'   },
-  { id: 'qr',       label: 'QR Code',  icon: QrCode,        color: 'text-purple-400', glow: 'shadow-purple-500/20' },
+  { id: 'feedback', label: 'Feedback', icon: MessageSquare },
+  { id: 'tags',     label: 'Tags',     icon: Tag           },
+  { id: 'qr',       label: 'QR Code',  icon: QrCode        },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -31,7 +31,7 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
     <div className="space-y-4">
 
       {/* ── Custom animated tab bar ── */}
-      <div className="relative flex gap-1 p-1 rounded-2xl bg-slate-900/60 border border-slate-800/50 backdrop-blur-sm">
+      <div className="relative flex gap-1 p-1 rounded-2xl dark:bg-slate-900/60 bg-slate-100 border dark:border-slate-800/50 border-slate-200/80 backdrop-blur-sm">
         {TABS.map((tab) => {
           const isActive = active === tab.id
           const Icon = tab.icon
@@ -42,8 +42,8 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
               className={cn(
                 'relative flex-1 flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer select-none',
                 isActive
-                  ? `text-white`
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                  ? 'dark:text-white text-slate-900'
+                  : 'dark:text-slate-500 text-slate-500 dark:hover:text-slate-300 hover:text-slate-900 dark:hover:bg-slate-800/40 hover:bg-white'
               )}
               aria-selected={isActive}
               role="tab"
@@ -52,10 +52,7 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
               {isActive && (
                 <span
                   className={cn(
-                    'absolute inset-0 rounded-xl bg-gradient-to-r opacity-100 transition-all duration-300',
-                    tab.id === 'feedback' && 'from-orange-500/20 to-orange-600/10 border border-orange-500/25',
-                    tab.id === 'tags'     && 'from-blue-500/20 to-blue-600/10 border border-blue-500/25',
-                    tab.id === 'qr'       && 'from-purple-500/20 to-purple-600/10 border border-purple-500/25',
+                    'absolute inset-0 rounded-xl bg-blue-600/10 border border-blue-600/20 opacity-100 transition-all duration-300',
                   )}
                   aria-hidden="true"
                 />
@@ -65,7 +62,7 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
                 <Icon
                   className={cn(
                     'h-4 w-4 transition-all duration-300',
-                    isActive ? tab.color : 'text-slate-500',
+                    isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500',
                     isActive && 'scale-110'
                   )}
                   aria-hidden="true"
@@ -77,7 +74,7 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
                 {tab.id === 'feedback' && openCount > 0 && (
                   <span className="relative flex h-4 w-4 items-center justify-center">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-40" />
-                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-orange-500 text-[9px] font-bold text-white items-center justify-center">
+                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-orange-500 text-[9px] font-bold !text-white items-center justify-center">
                       {openCount > 9 ? '9+' : openCount}
                     </span>
                   </span>
@@ -99,19 +96,17 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
         )}>
           <div className={cn(
             'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
-            active === 'feedback' && 'bg-orange-500/15 border border-orange-500/20',
-            active === 'tags'     && 'bg-blue-500/15 border border-blue-500/20',
-            active === 'qr'       && 'bg-purple-500/15 border border-purple-500/20',
+            'bg-blue-600/10 border border-blue-600/20',
           )}>
-            <activeTab.icon className={cn('h-4 w-4', activeTab.color)} aria-hidden="true" />
+            <activeTab.icon className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className="text-sm font-semibold dark:text-white text-slate-900">
               {active === 'feedback' && 'Private Feedback'}
               {active === 'tags'     && 'Service Tags'}
               {active === 'qr'       && 'Your QR Code'}
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs dark:text-slate-500 text-slate-400 mt-0.5">
               {active === 'feedback' && '1–3 star responses visible only to you — never posted publicly'}
               {active === 'tags'     && 'Appear on your review page for customers to select (up to 3)'}
               {active === 'qr'       && 'Display at your location — customers scan to leave a review'}
