@@ -1,23 +1,19 @@
 'use client'
 
 /**
- * ReviewBuilder — single-page scrollable review flow.
+ * ReviewBuilder — matches the zeusinfinityservices reference design.
  *
- * Step 1 — Tag selection (Service: pick 1 | Categories: pick ≥1)
- * Step 2 — Pick one of 2 AI-generated drafts, edit freely
+ * Step 1 — 2-col grid tag pills (Service + Categories)
+ * Step 2 — Slider (1 card at a time, auto-advances every 8s) + editable textarea
  * Step 3 — Copy & Open Google
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { Loader2, Copy, Check, ChevronRight, ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2, Copy, Check, ChevronRight, ChevronLeft, ExternalLink } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Tag {
-  id: string
-  label: string
-}
+interface Tag { id: string; label: string }
 
 interface ReviewBuilderProps {
   businessId: string
@@ -28,20 +24,24 @@ interface ReviewBuilderProps {
   onComplete: (chosenText: string) => void
 }
 
-// ─── Default tags (used when business has none configured) ────────────────────
+// ─── Default tags ─────────────────────────────────────────────────────────────
 
 const DEFAULT_SERVICE_TAGS: Tag[] = [
-  { id: '__service', label: '🛠️ Service' },
-  { id: '__product', label: '📦 Product' },
+  { id: '__service',  label: '🛠️ Service'  },
+  { id: '__product',  label: '📦 Product'  },
 ]
 
 const DEFAULT_CATEGORY_TAGS: Tag[] = [
-  { id: '__friendly', label: '😊 Friendly Staff' },
-  { id: '__clean', label: '✨ Clean & Tidy' },
-  { id: '__fast', label: '⚡ Fast Service' },
-  { id: '__value', label: '💰 Great Value' },
-  { id: '__professional', label: '🏆 Professional' },
-  { id: '__caring', label: '❤️ Caring' },
+  { id: '__people',    label: '👥 Good People'             },
+  { id: '__exp',       label: '⭐ Great Experience'         },
+  { id: '__place',     label: '📍 Good Place'              },
+  { id: '__quality',   label: '💎 Premium Quality'         },
+  { id: '__trust',     label: '🤝 Trustworthy'             },
+  { id: '__reliable',  label: '🎯 Reliable'                },
+  { id: '__work',      label: '👏 Work Completed Successfully' },
+  { id: '__ontime',    label: '⏳ On-Time Delivery'        },
+  { id: '__service2',  label: '🔌 Reliable Service'        },
+  { id: '__team',      label: '👍 Professional Team'       },
 ]
 
 const FALLBACK_VARIANTS = [
@@ -52,41 +52,34 @@ const FALLBACK_VARIANTS = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function splitTags(tags: Tag[]): { serviceTags: Tag[]; categoryTags: Tag[] } {
-  if (tags.length === 0) {
-    return { serviceTags: DEFAULT_SERVICE_TAGS, categoryTags: DEFAULT_CATEGORY_TAGS }
-  }
-  if (tags.length === 1) {
-    return { serviceTags: tags, categoryTags: DEFAULT_CATEGORY_TAGS }
-  }
+  if (tags.length === 0) return { serviceTags: DEFAULT_SERVICE_TAGS, categoryTags: DEFAULT_CATEGORY_TAGS }
+  if (tags.length === 1) return { serviceTags: tags, categoryTags: DEFAULT_CATEGORY_TAGS }
   return {
-    serviceTags: tags.slice(0, 2),
+    serviceTags:  tags.slice(0, 2),
     categoryTags: tags.slice(2).length > 0 ? tags.slice(2) : DEFAULT_CATEGORY_TAGS,
   }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── StepHeader ───────────────────────────────────────────────────────────────
 
-function StepHeader({
-  number, title, subtitle, active, done,
-}: {
+function StepHeader({ number, title, subtitle, active, done }: {
   number: number; title: string; subtitle: string; active: boolean; done: boolean
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div
-        className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors',
-          done ? 'bg-green-500 text-white' : active ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400'
-        )}
-        aria-hidden="true"
-      >
+      <div className={cn(
+        'w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors',
+        done   ? 'bg-green-500 text-white'
+               : active ? 'bg-blue-600 text-white'
+               : 'bg-slate-200 text-slate-400'
+      )} aria-hidden="true">
         {done ? '✓' : number}
       </div>
       <div>
-        <p className={cn('font-semibold text-base leading-tight', active || done ? 'text-slate-900' : 'text-slate-400')}>
+        <p className={cn('font-bold text-base leading-tight', active || done ? 'text-slate-900' : 'text-slate-400')}>
           {title}
         </p>
-        <p className={cn('text-xs mt-0.5', active || done ? 'text-slate-500' : 'text-slate-300')}>
+        <p className={cn('text-xs mt-0.5 leading-snug', active || done ? 'text-slate-500' : 'text-slate-300')}>
           {subtitle}
         </p>
       </div>
@@ -94,9 +87,9 @@ function StepHeader({
   )
 }
 
-function TagPill({
-  label, selected, onClick,
-}: {
+// ─── TagPill — 2-col grid style matching reference ────────────────────────────
+
+function TagPill({ label, selected, onClick }: {
   label: string; selected: boolean; onClick: () => void
 }) {
   return (
@@ -105,11 +98,11 @@ function TagPill({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium border transition-all duration-150',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1',
+        'w-full text-center px-3 py-3 rounded-2xl text-sm font-medium border-2 transition-all duration-150 leading-snug',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
         selected
-          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-          : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300 hover:bg-amber-50 cursor-pointer'
+          ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]'
+          : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50 active:scale-[0.98]'
       )}
     >
       {label}
@@ -117,11 +110,10 @@ function TagPill({
   )
 }
 
-/** One selectable review card with radio indicator */
-function ReviewCard({
-  text, index, selected, onSelect,
-}: {
-  text: string; index: number; selected: boolean; onSelect: () => void
+// ─── ReviewCard (used inside slider) ─────────────────────────────────────────
+
+function ReviewCard({ text, index, selected, onSelect, visible }: {
+  text: string; index: number; selected: boolean; onSelect: () => void; visible: boolean
 }) {
   return (
     <button
@@ -130,123 +122,199 @@ function ReviewCard({
       aria-pressed={selected}
       aria-label={`Select review option ${index + 1}`}
       className={cn(
-        'w-full text-left rounded-xl border p-4 transition-all duration-150',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1',
+        'w-full text-left rounded-2xl border-2 p-5 transition-all duration-300',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
         selected
-          ? 'border-amber-400 bg-amber-50 shadow-sm ring-1 ring-amber-400'
-          : 'border-slate-200 bg-white hover:border-amber-200 hover:bg-amber-50/30'
+          ? 'border-blue-500 bg-blue-50 shadow-md'
+          : 'border-slate-200 bg-white hover:border-blue-200',
+        visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-6',
       )}
+      style={{ transition: 'opacity 0.35s ease, transform 0.35s ease' }}
     >
       <div className="flex items-start gap-3">
-        {/* Radio indicator */}
-        <div
-          className={cn(
-            'mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors',
-            selected ? 'border-amber-500 bg-amber-500' : 'border-slate-300 bg-white'
-          )}
-          aria-hidden="true"
-        >
-          {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+        <div className={cn(
+          'mt-0.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all',
+          selected ? 'border-blue-500 bg-blue-500' : 'border-slate-300'
+        )} aria-hidden="true">
+          {selected && <div className="w-2 h-2 rounded-full bg-white" />}
         </div>
-        <p className="text-sm text-slate-700 leading-relaxed">{text}</p>
+        <div className="flex-1">
+          <p className="text-sm text-slate-700 leading-relaxed">{text}</p>
+          {selected && (
+            <p className="text-xs text-blue-600 font-semibold mt-2 flex items-center gap-1">
+              <Check className="h-3 w-3" />Selected
+            </p>
+          )}
+          {!selected && (
+            <p className="text-xs text-slate-400 mt-2">Tap to select</p>
+          )}
+        </div>
       </div>
     </button>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── ReviewSlider ─────────────────────────────────────────────────────────────
+
+function ReviewSlider({ variants, selectedVariantIndex, onSelect }: {
+  variants: string[]
+  selectedVariantIndex: number | null
+  onSelect: (i: number) => void
+}) {
+  const [active,   setActive]   = useState(0)
+  const [visible,  setVisible]  = useState(true)
+  const [progress, setProgress] = useState(0)
+  const autoRef  = useRef<ReturnType<typeof setTimeout>  | null>(null)
+  const progRef  = useRef<ReturnType<typeof setInterval> | null>(null)
+  const touchX   = useRef<number | null>(null)
+  const total    = variants.length
+  const DURATION = 8000
+
+  const clearTimers = useCallback(() => {
+    if (autoRef.current) clearTimeout(autoRef.current)
+    if (progRef.current) clearInterval(progRef.current)
+  }, [])
+
+  const startAuto = useCallback(() => {
+    clearTimers()
+    setProgress(0)
+    const tick = DURATION / 100
+    progRef.current = setInterval(() => setProgress(p => Math.min(p + 1, 100)), tick)
+    autoRef.current = setTimeout(() => {
+      setVisible(false)
+      setTimeout(() => { setActive(p => (p + 1) % total); setVisible(true) }, 350)
+    }, DURATION)
+  }, [total, clearTimers])
+
+  useEffect(() => { if (variants.length > 0) startAuto(); return clearTimers }, [variants, startAuto, clearTimers])
+  useEffect(() => { startAuto() }, [active, startAuto])
+
+  function goTo(index: number) {
+    if (index === active) return
+    setVisible(false)
+    setTimeout(() => { setActive(index); setVisible(true) }, 350)
+  }
+  function goPrev() { goTo((active - 1 + total) % total) }
+  function goNext() { goTo((active + 1) % total) }
+
+  return (
+    <div className="space-y-3">
+      {/* Counter + dots */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs text-slate-400 font-medium">Option {active + 1} of {total}</span>
+        <div className="flex gap-1.5">
+          {variants.map((_, i) => (
+            <button key={i} onClick={() => goTo(i)} aria-label={`Review ${i + 1}`}
+              className={cn('rounded-full transition-all duration-300',
+                i === active ? 'w-5 h-2 bg-blue-500' : 'w-2 h-2 bg-slate-300 hover:bg-blue-300'
+              )}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-0.5 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full bg-blue-400 rounded-full"
+          style={{ width: `${progress}%`, transition: progress === 0 ? 'none' : `width ${DURATION / 100}ms linear` }}
+        />
+      </div>
+
+      {/* Card with arrows */}
+      <div className="relative"
+        onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+        onTouchEnd={e => {
+          if (touchX.current === null) return
+          const diff = touchX.current - e.changedTouches[0].clientX
+          if (Math.abs(diff) > 40) diff > 0 ? goNext() : goPrev()
+          touchX.current = null
+        }}
+      >
+        {total > 1 && (
+          <button onClick={goPrev} aria-label="Previous"
+            className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 transition-all active:scale-95">
+            <ChevronLeft className="h-4 w-4 text-slate-500" />
+          </button>
+        )}
+        <div className="px-7">
+          <ReviewCard
+            key={active} text={variants[active]} index={active}
+            selected={selectedVariantIndex === active}
+            onSelect={() => onSelect(active)} visible={visible}
+          />
+        </div>
+        {total > 1 && (
+          <button onClick={goNext} aria-label="Next"
+            className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 transition-all active:scale-95">
+            <ChevronRight className="h-4 w-4 text-slate-500" />
+          </button>
+        )}
+      </div>
+      <p className="text-center text-xs text-slate-400">Swipe or use arrows · auto-advances every 8s</p>
+    </div>
+  )
+}
+
+// ─── Main ReviewBuilder ───────────────────────────────────────────────────────
 
 export default function ReviewBuilder({
-  businessId,
-  businessName,
-  googleReviewLink,
-  tags,
-  initialRating = 5,
-  onComplete,
+  businessId, businessName, googleReviewLink, tags, initialRating = 5, onComplete,
 }: ReviewBuilderProps) {
   const { serviceTags, categoryTags } = splitTags(tags)
 
-  // Step 1
-  const [selectedService, setSelectedService] = useState<string | null>(null)
+  const [selectedService,    setSelectedService]    = useState<string | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-
-  // Step 2
-  const [step2Active, setStep2Active] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [variants, setVariants] = useState<string[]>([])
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number | null>(null)
-  const [editedText, setEditedText] = useState('')
-  const [generatedOnce, setGeneratedOnce] = useState(false)
-
-  // Step 3
-  const [step3Active, setStep3Active] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [opened, setOpened] = useState(false)
+  const [step2Active,        setStep2Active]        = useState(false)
+  const [isGenerating,       setIsGenerating]       = useState(false)
+  const [variants,           setVariants]           = useState<string[]>([])
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState<number | null>(null)
+  const [editedText,         setEditedText]         = useState('')
+  const [generatedOnce,      setGeneratedOnce]      = useState(false)
+  const [step3Active,        setStep3Active]        = useState(false)
+  const [opened,             setOpened]             = useState(false)
 
   const step2Ref = useRef<HTMLDivElement>(null)
   const step3Ref = useRef<HTMLDivElement>(null)
 
-  // Derived
   const step1Done = selectedService !== null && selectedCategories.length > 0
   const step2Done = step3Active && editedText.trim().length > 0
 
-  // ── Auto-activate step 2 when step 1 is complete ──────────────────────
+  useEffect(() => { if (step1Done && !step2Active) setStep2Active(true) }, [step1Done, step2Active])
   useEffect(() => {
-    if (step1Done && !step2Active) setStep2Active(true)
-  }, [step1Done, step2Active])
-
-  // ── Scroll into view ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (step2Active && step2Ref.current) {
+    if (step2Active && step2Ref.current)
       setTimeout(() => step2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
-    }
   }, [step2Active])
-
   useEffect(() => {
-    if (step3Active && step3Ref.current) {
+    if (step3Active && step3Ref.current)
       setTimeout(() => step3Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
-    }
   }, [step3Active])
 
-  // ── Select a variant card ─────────────────────────────────────────────
-  function handleSelectVariant(index: number) {
-    setSelectedVariantIndex(index)
-    setEditedText(variants[index] ?? '')
-    // Unlock step 3 on first selection
+  function handleSelectVariant(i: number) {
+    setSelectedVariantIdx(i)
+    setEditedText(variants[i] ?? '')
     if (!step3Active) setStep3Active(true)
   }
 
-  // ── Generate 2 reviews ────────────────────────────────────────────────
   const generateReviews = useCallback(async () => {
     if (!step1Done) return
     setIsGenerating(true)
-    setSelectedVariantIndex(null)
+    setSelectedVariantIdx(null)
     setEditedText('')
     setStep3Active(false)
 
-    const serviceLabel = serviceTags.find((t) => t.id === selectedService)?.label
-    const categoryLabels = categoryTags
-      .filter((t) => selectedCategories.includes(t.id))
-      .map((t) => t.label)
-    const allTagLabels = [serviceLabel, ...categoryLabels].filter(Boolean) as string[]
+    const serviceLabel    = serviceTags.find(t => t.id === selectedService)?.label
+    const categoryLabels  = categoryTags.filter(t => selectedCategories.includes(t.id)).map(t => t.label)
+    const allTagLabels    = [serviceLabel, ...categoryLabels].filter(Boolean) as string[]
 
     try {
-      const res = await fetch('/api/review/generate', {
+      const res  = await fetch('/api/review/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          business_id: businessId,
-          business_name: businessName,
-          selected_tags: allTagLabels,
-        }),
+        body: JSON.stringify({ business_id: businessId, business_name: businessName, selected_tags: allTagLabels }),
       })
       const data = await res.json()
       const fetched: string[] = data.data?.variants ?? FALLBACK_VARIANTS
-      // Always show exactly 2
-      setVariants([
-        fetched[0] ?? FALLBACK_VARIANTS[0],
-        fetched[1] ?? FALLBACK_VARIANTS[1],
-      ])
+      setVariants([fetched[0] ?? FALLBACK_VARIANTS[0], fetched[1] ?? FALLBACK_VARIANTS[1]])
     } catch {
       setVariants([FALLBACK_VARIANTS[0], FALLBACK_VARIANTS[1]])
     } finally {
@@ -255,39 +323,27 @@ export default function ReviewBuilder({
     }
   }, [step1Done, selectedService, selectedCategories, businessId, businessName, serviceTags, categoryTags])
 
-  // Auto-generate when step 2 first activates
   useEffect(() => {
     if (step2Active && !generatedOnce && !isGenerating) generateReviews()
   }, [step2Active, generatedOnce, isGenerating, generateReviews])
 
-  // ── Copy & open Google ────────────────────────────────────────────────
   async function handleCopyAndOpen() {
     const text = editedText.trim()
     if (!text) return
+    try { await navigator.clipboard.writeText(text) } catch { /* silent */ }
 
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      // Clipboard API unavailable — continue silently
-    }
-
-    setCopied(true)
     setOpened(true)
 
-    const serviceLabel = serviceTags.find((t) => t.id === selectedService)?.label
-    const categoryLabels = categoryTags
-      .filter((t) => selectedCategories.includes(t.id))
-      .map((t) => t.label)
+    const serviceLabel   = serviceTags.find(t => t.id === selectedService)?.label
+    const categoryLabels = categoryTags.filter(t => selectedCategories.includes(t.id)).map(t => t.label)
 
     fetch('/api/review/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        business_id: businessId,
-        rating: initialRating,
+        business_id: businessId, rating: initialRating,
         selected_tags: [serviceLabel, ...categoryLabels].filter(Boolean),
-        ai_variant_chosen: text,
-        redirected_to_google: true,
+        ai_variant_chosen: text, redirected_to_google: true,
       }),
     }).catch(() => {})
 
@@ -295,157 +351,110 @@ export default function ReviewBuilder({
     onComplete(text)
   }
 
-  // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-      {/* ══ STEP 1: Tags ═══════════════════════════════════════════════ */}
-      <section
-        className={cn(
-          'rounded-2xl border p-5 space-y-5 transition-all duration-200',
-          step1Done ? 'border-green-200 bg-green-50/40' : 'border-slate-200 bg-white shadow-sm'
-        )}
-        aria-label="Step 1: Select tags"
-      >
-        <StepHeader
-          number={1}
-          title="What did you love?"
+      {/* ══ STEP 1 ══════════════════════════════════════════════════════ */}
+      <div className={cn(
+        'rounded-3xl border-2 bg-white p-5 space-y-5 transition-all duration-200',
+        step1Done ? 'border-green-300' : 'border-slate-200 shadow-sm'
+      )} aria-label="Step 1: Select tags">
+
+        <StepHeader number={1} title="What did you love?"
           subtitle="Pick ONE Service Tag and AT LEAST ONE Category Tag."
-          active={!step1Done}
-          done={step1Done}
-        />
+          active={!step1Done} done={step1Done} />
 
-        {/* Service */}
+        {/* Service — 2-col grid */}
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            Service{' '}
-            <span className="font-normal normal-case text-slate-400">(Pick exactly 1)</span>
+          <p className="text-xs font-semibold text-slate-500">
+            Service <span className="font-normal text-slate-400">(Pick exactly 1)</span>
           </p>
-          <div className="flex flex-wrap gap-2">
-            {serviceTags.map((tag) => (
-              <TagPill
-                key={tag.id}
-                label={tag.label}
+          <div className="grid grid-cols-2 gap-2">
+            {serviceTags.map(tag => (
+              <TagPill key={tag.id} label={tag.label}
                 selected={selectedService === tag.id}
-                onClick={() => setSelectedService((p) => (p === tag.id ? null : tag.id))}
+                onClick={() => setSelectedService(p => p === tag.id ? null : tag.id)}
               />
             ))}
           </div>
         </div>
 
-        {/* Categories */}
+        {/* Categories — 2-col grid */}
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            Categories{' '}
-            <span className="font-normal normal-case text-slate-400">(Pick at least 1)</span>
+          <p className="text-xs font-semibold text-slate-500">
+            Categories <span className="font-normal text-slate-400">(Pick at least 1)</span>
           </p>
-          <div className="flex flex-wrap gap-2">
-            {categoryTags.map((tag) => {
+          <div className="grid grid-cols-2 gap-2">
+            {categoryTags.map(tag => {
               const sel = selectedCategories.includes(tag.id)
               return (
-                <TagPill
-                  key={tag.id}
-                  label={tag.label}
-                  selected={sel}
-                  onClick={() =>
-                    setSelectedCategories((p) =>
-                      sel ? p.filter((id) => id !== tag.id) : [...p, tag.id]
-                    )
-                  }
+                <TagPill key={tag.id} label={tag.label} selected={sel}
+                  onClick={() => setSelectedCategories(p => sel ? p.filter(id => id !== tag.id) : [...p, tag.id])}
                 />
               )
             })}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ══ STEP 2: Pick a draft ════════════════════════════════════════ */}
-      <section
+      {/* ══ STEP 2 ══════════════════════════════════════════════════════ */}
+      <div
         ref={step2Ref}
         className={cn(
-          'rounded-2xl border p-5 space-y-4 transition-all duration-200',
-          !step2Active && 'opacity-40 pointer-events-none select-none',
-          step2Done
-            ? 'border-green-200 bg-green-50/40'
-            : step2Active
-            ? 'border-slate-200 bg-white shadow-sm'
-            : 'border-slate-100 bg-slate-50'
+          'rounded-3xl border-2 bg-white p-5 space-y-4 transition-all duration-200',
+          !step2Active && 'opacity-50 pointer-events-none select-none',
+          step2Done ? 'border-green-300' : step2Active ? 'border-slate-200 shadow-sm' : 'border-slate-100'
         )}
-        aria-label="Step 2: Choose your review draft"
-        aria-disabled={!step2Active}
+        aria-label="Step 2: Write your review"
       >
-        <StepHeader
-          number={2}
-          title="Write your review"
-          subtitle="Tap a draft to select it. Edit the wording below if you like."
-          active={step2Active && !step2Done}
-          done={step2Done}
-        />
+        <StepHeader number={2} title="Write your review"
+          subtitle="Tap any draft below to copy it here. Tweak the wording if you want, then continue to Google."
+          active={step2Active && !step2Done} done={step2Done} />
 
-        {/* Skeleton loader */}
+        {/* Generating skeleton */}
         {isGenerating && (
-          <div className="space-y-3" aria-busy="true" aria-label="Generating reviews…">
-            {[0, 1].map((i) => (
-              <div key={i} className="rounded-xl border border-slate-100 p-4 space-y-2 animate-pulse">
-                <div className="h-3.5 bg-slate-200 rounded w-full" />
-                <div className="h-3.5 bg-slate-200 rounded w-5/6" />
-                <div className="h-3.5 bg-slate-200 rounded w-3/5" />
+          <div className="space-y-3" aria-busy="true">
+            {[0,1].map(i => (
+              <div key={i} className="rounded-2xl border-2 border-slate-100 p-5 space-y-2 animate-pulse">
+                <div className="h-3 bg-slate-100 rounded-full w-full" />
+                <div className="h-3 bg-slate-100 rounded-full w-5/6" />
+                <div className="h-3 bg-slate-100 rounded-full w-4/6" />
               </div>
             ))}
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-amber-500" aria-hidden="true" />
+            <div className="flex items-center gap-2 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
               <span className="text-xs text-slate-400">Writing two personalised drafts…</span>
             </div>
           </div>
         )}
 
-        {/* Two selectable cards */}
+        {/* Slider */}
         {!isGenerating && step2Active && variants.length > 0 && (
-          <div
-            className="space-y-3"
-            role="radiogroup"
-            aria-label="Choose a review draft"
-          >
-            {variants.map((text, i) => (
-              <ReviewCard
-                key={i}
-                text={text}
-                index={i}
-                selected={selectedVariantIndex === i}
-                onSelect={() => handleSelectVariant(i)}
-              />
-            ))}
-          </div>
+          <ReviewSlider
+            variants={variants}
+            selectedVariantIndex={selectedVariantIdx}
+            onSelect={handleSelectVariant}
+          />
         )}
 
-        {/* Editable textarea — appears after a card is selected */}
-        {!isGenerating && selectedVariantIndex !== null && (
-          <div className="space-y-2 pt-1">
-            <p className="text-xs text-slate-500">
-              ✏️ Edit your review below if you want to tweak the wording:
-            </p>
+        {/* Editable textarea */}
+        {!isGenerating && selectedVariantIdx !== null && (
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">✏️ Edit below if you want to tweak the wording:</p>
             <textarea
               value={editedText}
-              onChange={(e) => setEditedText(e.target.value)}
+              onChange={e => setEditedText(e.target.value)}
               rows={4}
-              aria-label="Edit your review before posting"
-              className={cn(
-                'w-full rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3',
-                'text-sm text-slate-700 leading-relaxed resize-none',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1',
-                'transition-colors duration-150'
-              )}
+              aria-label="Edit your review"
+              placeholder="Edit your chosen review here, or write from scratch if you prefer."
+              className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 leading-relaxed resize-none focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
               maxLength={600}
             />
             <div className="flex items-center justify-between">
               <p className="text-xs text-slate-400">{editedText.length}/600</p>
               {generatedOnce && (
-                <button
-                  type="button"
-                  onClick={generateReviews}
-                  disabled={isGenerating}
-                  className="text-xs text-amber-600 hover:text-amber-700 underline underline-offset-2 disabled:opacity-40"
-                >
+                <button type="button" onClick={generateReviews} disabled={isGenerating}
+                  className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2 disabled:opacity-40">
                   Regenerate both
                 </button>
               )}
@@ -453,96 +462,83 @@ export default function ReviewBuilder({
           </div>
         )}
 
-        {/* Regenerate button before any selection */}
-        {!isGenerating && generatedOnce && selectedVariantIndex === null && (
+        {/* Placeholder when not yet active */}
+        {!step2Active && (
+          <p className="text-sm text-slate-400 text-center py-2">
+            Your review options will show here once step 1 is done.
+          </p>
+        )}
+
+        {/* Regenerate before selection */}
+        {!isGenerating && generatedOnce && selectedVariantIdx === null && (
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={generateReviews}
-              className="text-xs text-amber-600 hover:text-amber-700 underline underline-offset-2"
-            >
+            <button type="button" onClick={generateReviews}
+              className="text-xs text-blue-500 hover:text-blue-700 underline underline-offset-2">
               Regenerate both
             </button>
           </div>
         )}
+      </div>
 
-        {/* Placeholder when step 2 not yet active */}
-        {!step2Active && (
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-300 italic">
-            Your review options will show here once step 1 is done.
-          </div>
-        )}
-      </section>
-
-      {/* ══ STEP 3: Post to Google ══════════════════════════════════════ */}
-      <section
+      {/* ══ STEP 3 ══════════════════════════════════════════════════════ */}
+      <div
         ref={step3Ref}
         className={cn(
-          'rounded-2xl border p-5 space-y-4 transition-all duration-200',
-          !step3Active && 'opacity-40 pointer-events-none select-none',
-          step3Active ? 'border-slate-200 bg-white shadow-sm' : 'border-slate-100 bg-slate-50'
+          'rounded-3xl border-2 bg-white p-5 space-y-4 transition-all duration-200',
+          !step3Active && 'opacity-50 pointer-events-none select-none',
+          step3Active ? 'border-slate-200 shadow-sm' : 'border-slate-100'
         )}
         aria-label="Step 3: Post to Google"
-        aria-disabled={!step3Active}
       >
-        <StepHeader
-          number={3}
-          title="Post to Google"
+        <StepHeader number={3} title="Post to Google"
           subtitle="One tap. Your review gets copied then opens Google."
-          active={step3Active && !opened}
-          done={opened}
-        />
+          active={step3Active && !opened} done={opened} />
 
         {step3Active && (
           <div className="space-y-3">
-            <p className="text-xs text-slate-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              📋 We&apos;ll copy your review to clipboard, then open Google Reviews. Just paste &amp; submit!
-            </p>
+            {/* Info banner */}
+            <div className="rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 leading-snug">
+              📋 We&apos;ll <strong>copy your review</strong> to clipboard, then open Google Reviews. Just <strong>paste &amp; submit!</strong>
+            </div>
 
-            <Button
+            {/* CTA button */}
+            <button
               onClick={handleCopyAndOpen}
               disabled={!editedText.trim() || opened}
               className={cn(
-                'w-full h-12 text-base font-semibold transition-all duration-200',
+                'w-full h-14 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2',
                 opened
-                  ? 'bg-green-500 hover:bg-green-500 text-white'
-                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg active:scale-[0.98]'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-slate-100 text-slate-500 border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 active:scale-[0.98]',
+                !editedText.trim() && 'opacity-50 cursor-not-allowed'
               )}
-              aria-label="Copy review text and open Google Reviews"
+              aria-label="Copy review and open Google"
             >
               {opened ? (
-                <>
-                  <Check className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Copied &amp; Google Opened!
-                </>
+                <><Check className="h-5 w-5" />Copied &amp; Google Opened!</>
               ) : (
-                <>
-                  <Copy className="mr-2 h-5 w-5" aria-hidden="true" />
-                  Copy &amp; Open Google Review
-                  <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </>
+                <>Copy &amp; Open Google Review <ChevronRight className="h-5 w-5" /></>
               )}
-            </Button>
+            </button>
 
             {opened && (
-              <Button
+              <button
                 onClick={() => window.open(googleReviewLink, '_blank', 'noopener,noreferrer')}
-                variant="outline"
-                className="w-full h-11 text-sm"
+                className="w-full h-11 rounded-2xl border-2 border-slate-200 text-sm text-slate-600 hover:border-blue-300 hover:text-blue-600 transition-all flex items-center justify-center gap-2"
               >
-                <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
-                Open Google Reviews again
-              </Button>
+                <ExternalLink className="h-4 w-4" />Open Google Reviews again
+              </button>
             )}
           </div>
         )}
 
         {!step3Active && (
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-300 italic">
+          <p className="text-sm text-slate-400 text-center py-1">
             Select a review draft above to unlock this step.
-          </div>
+          </p>
         )}
-      </section>
+      </div>
+
     </div>
   )
 }

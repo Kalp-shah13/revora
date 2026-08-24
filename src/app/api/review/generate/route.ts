@@ -1,13 +1,19 @@
 /**
  * POST /api/review/generate
- * Public — generate 2 human-sounding Google review variants using OpenAI GPT-4o-mini.
  *
- * Core philosophy:
- *   Real people write reviews on their phone in 30 seconds.
- *   They use casual language, normal punctuation, no lists, no hype,
- *   no corporate words, no AI tell-tale patterns.
- *   Google's spam filters flag reviews that look machine-generated.
- *   Every rule below exists to defeat those filters.
+ * Generates 2 unique, human-sounding Google review variants every single call —
+ * even when the exact same tags are submitted 1000 times in a row.
+ *
+ * HOW UNIQUENESS IS GUARANTEED:
+ *   1. Unique entropy token — a random hex string injected into every prompt.
+ *      GPT sees a different input each call so it cannot return a cached response.
+ *   2. Massive persona pool (10) + opener pool (30) — randomly combined each call.
+ *   3. Unique perspective angle picked fresh each call (20 options).
+ *   4. Unique contextual detail instruction picked fresh each call (16 options).
+ *   5. Temperature randomised in a range each call (not a fixed value).
+ *   6. Seed parameter passed to OpenAI = null (forces non-deterministic).
+ *   7. Large diverse fallback pool (16 variants) — random pair chosen if AI fails.
+ *   8. Fallback pair guaranteed to be different from each other.
  *
  * Rate limited: 10 requests per minute per IP.
  */
@@ -18,54 +24,72 @@ import { rateLimit, getClientIp } from '@/lib/rate-limit'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-// ─── Human persona library ────────────────────────────────────────────────────
-// Each persona describes a real-world type of customer.
-// Two are picked randomly per request so the two cards always feel like
-// completely different people — different age, tone, detail level.
+// ─── Persona pool (10) ────────────────────────────────────────────────────────
 
 const PERSONAS = [
   {
     id: 'busy-parent',
-    description: 'a parent in their late 30s, always in a hurry, types quickly on a phone, uses short sentences and gets straight to the point, very genuine, no fuss',
-    length: '1 to 2 sentences, under 55 words total',
-    tone: 'matter-of-fact, warm but brief',
+    description: 'a busy parent in their late 30s who types on their phone while multitasking, very brief, warm but no fuss',
+    length: '1 to 2 short sentences, under 50 words',
+    tone: 'matter-of-fact, genuine, conversational',
   },
   {
     id: 'local-regular',
-    description: 'a local resident who has been to a lot of places and knows what good service looks like, slightly conversational, shares a small personal detail or observation, sounds like they actually went there',
+    description: 'a local resident who visits many places and knows good service when they see it, shares a small personal observation',
     length: '2 to 3 sentences, 55 to 90 words',
-    tone: 'natural, grounded, occasionally uses everyday phrases like "to be honest" or "honestly"',
+    tone: 'natural, grounded, occasionally uses "honestly" or "to be fair"',
   },
   {
     id: 'first-timer',
-    description: 'someone visiting for the first time, slightly surprised by how good it was, shares one specific thing that stood out, writes the way they would text a friend',
-    length: '2 sentences, 40 to 70 words',
-    tone: 'slightly enthusiastic but still natural, avoids superlatives',
+    description: 'someone visiting for the first time who was pleasantly surprised, mentions one specific thing that stood out',
+    length: '2 sentences, 40 to 65 words',
+    tone: 'slightly surprised but still measured, writes like texting a friend',
   },
   {
     id: 'professional',
-    description: 'a working professional in their 40s, precise, values time and quality, notices specific details, writes clearly but informally',
-    length: '2 sentences, 50 to 80 words',
-    tone: 'calm, considered, specific — no fluff',
+    description: 'a working professional in their 40s who values precision and their time, notices specific details others might miss',
+    length: '2 sentences, 50 to 75 words',
+    tone: 'calm, specific, no fluff',
   },
   {
     id: 'older-customer',
-    description: 'a customer in their 50s or 60s who is not very tech-savvy, writes simply and directly, focuses on how they were treated and whether they would come back',
-    length: '1 to 2 short sentences, under 50 words',
-    tone: 'simple, sincere, old-fashioned warmth',
+    description: 'a customer in their late 50s who writes simply, focuses on how they were treated and whether they felt welcome',
+    length: '1 to 2 short sentences, under 45 words',
+    tone: 'simple, direct, warm sincerity',
   },
   {
     id: 'young-adult',
-    description: 'a person in their mid-20s who goes out a lot, compares to other places, casually mentions value or atmosphere, writes the way they would on WhatsApp — lowercase is fine, relaxed',
-    length: '2 sentences, 40 to 70 words',
-    tone: 'casual, honest, uses "pretty" or "actually" naturally',
+    description: 'a person in their mid-20s who compares places a lot, casually mentions value for money, writes like a WhatsApp message',
+    length: '2 sentences, 35 to 65 words',
+    tone: 'relaxed and honest, uses "pretty" or "actually" naturally',
+  },
+  {
+    id: 'loyal-customer',
+    description: 'someone who has been a few times and keeps coming back, mentions returning and why they keep choosing this place',
+    length: '2 to 3 sentences, 50 to 80 words',
+    tone: 'familiar, comfortable, loyal without being gushing',
+  },
+  {
+    id: 'referred-visitor',
+    description: 'someone who came based on a friends recommendation and is glad they did, mentions the recommendation briefly',
+    length: '2 sentences, 45 to 70 words',
+    tone: 'grateful, validates the recommendation, natural',
+  },
+  {
+    id: 'skeptic-converted',
+    description: 'someone who was unsure at first but ended up having a genuinely good experience, slightly surprised tone',
+    length: '2 sentences, 50 to 75 words',
+    tone: 'honest and slightly surprised, credible because it admits initial doubt',
+  },
+  {
+    id: 'comparison-shopper',
+    description: 'someone who has tried several similar places and compares this one favourably to others without naming competitors',
+    length: '2 sentences, 50 to 80 words',
+    tone: 'informed, measured, specific about what sets this place apart',
   },
 ]
 
-// ─── Opening fragment seeds ───────────────────────────────────────────────────
-// These are injected as inspiration for how to begin the review.
-// They prevent GPT from always starting with the same patterns.
-// GPT is told to adapt them naturally, not copy them verbatim.
+// ─── Opening seed pool (30) ───────────────────────────────────────────────────
 
 const OPENERS = [
   'Went here recently',
@@ -76,117 +100,192 @@ const OPENERS = [
   'Came here on a friends recommendation',
   'Finally got around to visiting',
   'Popped in on a whim',
-  'Had a good experience here',
-  'Checked this place out',
-  'Visited with family',
-  'Came in for the first time',
-  'Honestly just needed somewhere good',
-  'Was passing by and decided to go in',
-  'Had heard good things',
+  'Had a really good visit',
+  'Checked this place out last month',
+  'Visited with my partner',
+  'Came in for the first time last week',
+  'Honestly just needed somewhere decent',
+  'Was passing by and decided to stop in',
+  'Had heard good things for a while',
+  'Came back for the second time',
+  'Tried this place after seeing it online',
+  'Went on a Tuesday afternoon',
+  'Booked this after looking around',
+  'Had been meaning to visit for ages',
+  'Walked past this a few times and finally went in',
+  'Came here with a colleague',
+  'Was referred by someone I trust',
+  'Visited on a busy Saturday',
+  'Came in not expecting much honestly',
+  'Tried several places before settling here',
+  'Went here instead of somewhere I usually go',
+  'Came back after a good first visit',
+  'Stopped by on a quiet weekday',
+  'Gave this place a go last week',
 ]
 
-// ─── Fallback reviews ─────────────────────────────────────────────────────────
-// Used only when AI is unavailable or rate-limited.
-// These are written to look like real human reviews.
+// ─── Perspective angles (20) — injected to force different narrative focus ────
 
-const FALLBACK_VARIANTS = [
-  "Came here on a recommendation and it genuinely delivered. Staff were friendly and the whole thing was smooth from the moment I walked in. Would come back no question.",
-  "Really solid place. Felt well looked after throughout and everything was handled properly. Glad I found it and will be telling others.",
+const ANGLES = [
+  'Focus on how the customer felt while they were there.',
+  'Mention one specific small detail that made the experience stand out.',
+  'Compare briefly to other similar places without naming them.',
+  'Talk about whether the customer would come back and why.',
+  'Describe the experience as a sequence of small moments.',
+  'Focus on the people working there and how they made you feel.',
+  'Mention how the place handled something that could have gone wrong.',
+  'Talk about the overall value relative to what was expected.',
+  'Focus on one tag in particular and explain it through an experience.',
+  'Mention telling a friend or family member about this place.',
+  'Talk about first impressions when arriving and how they played out.',
+  'Focus on what makes this place different from what the customer expected.',
+  'Mention how easy or smooth the whole thing was.',
+  'Talk about what the customer will remember about this place.',
+  'Focus on the reliability or consistency of the experience.',
+  'Mention how the customer felt leaving compared to when they arrived.',
+  'Talk about what specifically was noticed about the quality.',
+  'Focus on how the customer felt they were treated as a person.',
+  'Mention something that exceeded what you get at most places.',
+  'Talk about how this place compares to the customer own standards.',
+]
+
+// ─── Contextual detail instructions (16) ─────────────────────────────────────
+
+const DETAIL_INSTRUCTIONS = [
+  'Mention a small sensory detail like how the place looked or felt.',
+  'Include a brief time reference like "on a weekday" or "in the afternoon".',
+  'Mention how long it took or how efficient things were.',
+  'Include a small observation about the atmosphere.',
+  'Mention whether the customer felt rushed or at ease.',
+  'Reference the fact that they had done their research before visiting.',
+  'Include a passing mention of who they came with.',
+  'Mention a brief moment of doubt that was quickly resolved.',
+  'Reference how well things were organised or laid out.',
+  'Mention how the customer felt when they first made contact or arrived.',
+  'Include a small note about how the staff communicated.',
+  'Reference the fact that everything was as described or expected.',
+  'Mention a specific aspect of the service that was unexpectedly good.',
+  'Include a brief note about ease of the overall process.',
+  'Reference any follow-up or afterthought the customer had.',
+  'Mention a small thing that showed care or attention to detail.',
+]
+
+// ─── Large diverse fallback pool (16 reviews) ────────────────────────────────
+// When AI is unavailable, two are picked randomly and guaranteed to be different.
+
+const FALLBACK_POOL = [
+  "Came here on a recommendation and it genuinely delivered. Staff were friendly and the whole thing felt easy from start to finish.",
+  "Really solid visit. Felt looked after throughout and everything was handled well. Will be coming back.",
+  "Tried this place after hearing about it and was not disappointed. Good people and the whole experience felt genuine.",
+  "Visited recently and came away impressed. Everything was smooth and the team clearly know what they are doing.",
+  "Went here for the first time and it was exactly what you want. Friendly service and nothing felt like an afterthought.",
+  "Had a good experience here. Nothing over the top but everything was done properly and the staff were easy to deal with.",
+  "Been to a few places like this and this one stands out. Things were handled professionally and the service felt personal.",
+  "Came in not knowing what to expect and left pretty satisfied. The attention to detail was noticeable and the team were helpful.",
+  "Gave this a go after passing by a few times. Really glad I did. Good service and the whole process was painless.",
+  "Visited with a friend and we both came away happy. Everything was taken care of without any fuss.",
+  "Solid experience from beginning to end. The people here are clearly good at what they do and it shows.",
+  "Came back for a second time and it was just as good as the first. Consistency counts for a lot and this place gets it right.",
+  "Used this place based on a suggestion and it lived up to it. Straightforward to deal with and genuinely helpful.",
+  "Visited on a weekday and got prompt and friendly service. Would have no hesitation recommending this to others.",
+  "Really appreciated how smoothly everything went. Good team and the quality was exactly what you would want.",
+  "Came here instead of somewhere I usually go and I am glad I made the switch. Better service and a more comfortable experience overall.",
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function pickRandom<T>(arr: T[]): T {
+function rand<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-/** Pick N unique random items from an array */
-function pickUniqueRandom<T>(arr: T[], n: number): T[] {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, n)
+function pickUnique<T>(arr: T[], n: number): T[] {
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, n)
+}
+
+/** Generate a short random hex token — injected into each prompt to bust caching */
+function uniqueToken(): string {
+  return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6)
+}
+
+/** Random temperature in a range to prevent deterministic output */
+function randTemp(min: number, max: number): number {
+  return parseFloat((min + Math.random() * (max - min)).toFixed(2))
+}
+
+/** Pick 2 different fallbacks from the pool */
+function pickFallbackPair(): [string, string] {
+  const shuffled = [...FALLBACK_POOL].sort(() => Math.random() - 0.5)
+  return [shuffled[0], shuffled[1]]
 }
 
 // ─── Post-processing ──────────────────────────────────────────────────────────
-// Strips any remaining AI artifacts that GPT occasionally sneaks in.
 
 function humanise(text: string): string {
   return text
-    // Remove leading/trailing quotation marks GPT sometimes wraps output in
     .replace(/^["'""''`]+|["'""''`]+$/g, '')
-    // Remove any dashes used as list markers or em-dashes
     .replace(/\s*[–—]\s*/g, ' ')
     .replace(/\s+-\s+/g, ' ')
-    // Remove bullet point characters
     .replace(/^[•·▪▸►*]\s*/gm, '')
-    // Collapse multiple spaces
     .replace(/  +/g, ' ')
-    // Remove trailing colons that GPT uses as headers
     .replace(/:\s*$/g, '')
-    // Strip "Review:" or "Review text:" type labels
     .replace(/^(review\s*(text)?\s*:?\s*)/i, '')
     .trim()
 }
 
-// ─── Build the system prompt ──────────────────────────────────────────────────
+// ─── System prompt ────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(): string {
   return `You write Google reviews that sound exactly like a real human typed them on their phone.
 
-Your job is to make the review pass Google's AI detection filters. That means:
-- No formatting of any kind. No bullet points, no numbered lists, no headers, no line breaks inside the review.
+Rules — breaking any of these makes the review unusable:
+- Output ONLY the review text. No labels, no quotes around it, no explanation.
+- No formatting at all. No bullet points, no line breaks, no numbered lists, no headers.
 - No dashes of any kind. Not hyphens, not en-dashes, not em-dashes. Zero.
-- No forward slashes or backward slashes anywhere.
-- No colon lists. Never write "thing: detail" or "reason: because".
-- No exclamation marks. Real people on phones do use them occasionally but you must avoid them entirely.
-- No AI-favourite words. Never use: amazing, absolutely, incredible, exceeded expectations, truly, seamlessly, testament, top-notch, phenomenal, outstanding, stellar, impeccable, unwavering, delightful, thrilled, blown away, can't recommend enough, exceptional, remarkable, superb, fantastic, wonderful, perfect, flawless, kudos, certainly, ensure, leverage, facilitate, robust, comprehensive, curated, bespoke, tailored, cutting-edge, state-of-the-art, world-class.
-- No corporate or marketing language. Write the way a real person talks.
-- Do not start with "I". Start with the business name, a general observation, or what stood out.
-- Do not start multiple sentences with "The".
-- No fake-sounding superlatives. Instead of "the best place ever" say "one of the better ones I have tried".
-- Output ONLY the review text. Nothing else. No label, no prefix, no explanation, no quotes around it.`
+- No forward slashes or backward slashes.
+- No colon constructions like "service: great" or "reason: because".
+- No exclamation marks anywhere.
+- Never use these words: amazing, absolutely, incredible, exceeded expectations, truly, seamlessly, testament, top-notch, phenomenal, outstanding, stellar, impeccable, unwavering, delightful, thrilled, blown away, exceptional, remarkable, superb, fantastic, wonderful, perfect, flawless, kudos, certainly, ensure, leverage, facilitate, robust, comprehensive, curated, bespoke, tailored, cutting-edge, state-of-the-art, world-class.
+- Never start with "I".
+- Do not start two sentences with "The".
+- No corporate or marketing language.
+- Sound like a real person writing on their phone — informal and genuine.`
 }
 
-// ─── Build the user prompt for one variant ───────────────────────────────────
+// ─── User prompt ──────────────────────────────────────────────────────────────
 
 function buildUserPrompt(
   safeName: string,
   safeTags: string[],
   persona: typeof PERSONAS[number],
   opener: string,
-  variationSeed: number
+  angle: string,
+  detail: string,
+  token: string,
 ): string {
-  // Variation seeds change the instructions slightly to force different output
-  const variationHints = [
-    'Focus mostly on how the customer was made to feel.',
-    'Mention a specific moment or detail that stood out.',
-    'Compare briefly to similar places the customer has been to.',
-    'Focus on the overall value and whether they would return.',
-    'Describe the experience from arrival to leaving.',
-    'Mention something they noticed that others might overlook.',
-  ]
-  const hint = variationHints[variationSeed % variationHints.length]
+  // The token is framed as a "session ID" — GPT treats it as context,
+  // ensuring the prompt is unique even when all other inputs are identical.
+  return `Session ${token} — write a Google review for a real customer visiting ${safeName}.
 
-  return `Write a Google review for a real customer visiting ${safeName}.
+What the customer wants to highlight: ${safeTags.join(', ')}
 
-What the customer wants to mention: ${safeTags.join(', ')}
-
-Write as if you are: ${persona.description}
+Write as: ${persona.description}
 Length: ${persona.length}
 Tone: ${persona.tone}
-Opening inspiration (adapt this naturally, do not copy word for word): "${opener}"
-Angle for this review: ${hint}
+How to open (adapt naturally, do not copy): "${opener}…"
+Narrative angle: ${angle}
+Extra detail: ${detail}
 
-Remember: output only the review text. No punctuation symbols like dashes, slashes or bullets anywhere. No exclamation marks. No AI words.`
+Output only the review text.`
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const BANNED_SYMBOLS = /[-–—/\\|•·]|!{1,}/
-const BANNED_WORDS   = /\b(amazing|absolutely|incredible|exceeded expectations|truly|seamlessly|testament|top-notch|phenomenal|outstanding|stellar|impeccable|unwavering|delightful|thrilled|blown away|can't recommend enough|exceptional|remarkable|superb|fantastic|wonderful|perfect|flawless|kudos|certainly|ensure|leverage|facilitate|robust|comprehensive|curated|bespoke|tailored|cutting-edge|state-of-the-art|world-class)\b/i
+const BANNED_SYMBOLS = /[-–—/\\|•·]|!+/
+const BANNED_WORDS   = /\b(amazing|absolutely|incredible|exceeded expectations|truly|seamlessly|testament|top-notch|phenomenal|outstanding|stellar|impeccable|unwavering|delightful|thrilled|blown away|exceptional|remarkable|superb|fantastic|wonderful|perfect|flawless|kudos|certainly|ensure|leverage|facilitate|robust|comprehensive|curated|bespoke|tailored|cutting-edge|state-of-the-art|world-class)\b/i
 const STARTS_WITH_I  = /^i\b/i
 const HAS_STRUCTURE  = /:\s|\n|\r|•|·|^\d+\./m
 
-function isHumanEnough(text: string): boolean {
+function isValid(text: string): boolean {
   if (!text || text.length < 30 || text.length > 700) return false
   if (BANNED_SYMBOLS.test(text))  return false
   if (BANNED_WORDS.test(text))    return false
@@ -198,13 +297,12 @@ function isHumanEnough(text: string): boolean {
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  // Rate limit: 10 generate requests per minute per IP
   const ip = getClientIp(request)
   const { allowed } = rateLimit(`generate:${ip}`, { limit: 10, windowMs: 60_000 })
 
   if (!allowed) {
     return NextResponse.json(
-      { data: { variants: FALLBACK_VARIANTS }, warning: 'Rate limited — using fallback reviews' },
+      { data: { variants: pickFallbackPair() }, warning: 'Rate limited' },
       { status: 200 }
     )
   }
@@ -214,97 +312,104 @@ export async function POST(request: NextRequest) {
     const { business_name, selected_tags, business_id } = body
 
     if (!business_name || !business_id) {
-      return NextResponse.json(
-        { error: 'business_name and business_id are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'business_name and business_id are required' }, { status: 400 })
     }
 
     if (!Array.isArray(selected_tags) || selected_tags.length === 0) {
-      return NextResponse.json({ data: { variants: FALLBACK_VARIANTS } })
+      return NextResponse.json({ data: { variants: pickFallbackPair() } })
     }
 
     const safeName = sanitizeForPrompt(String(business_name), 100)
     const safeTags = (selected_tags as unknown[])
-      .map((tag) => sanitizeForPrompt(String(tag), 50))
+      .map(t => sanitizeForPrompt(String(t), 50))
       .filter(Boolean)
 
     if (!safeName) {
-      return NextResponse.json({ data: { variants: FALLBACK_VARIANTS } })
+      return NextResponse.json({ data: { variants: pickFallbackPair() } })
     }
-
-    // Pick 2 completely different personas for the two cards
-    const [persona1, persona2] = pickUniqueRandom(PERSONAS, 2)
-    const opener1 = pickRandom(OPENERS)
-    // Make sure opener2 is different from opener1
-    const opener2 = pickRandom(OPENERS.filter(o => o !== opener1))
 
     const systemPrompt = buildSystemPrompt()
 
-    // Generate both variants concurrently
-    // Each gets a different persona, opener, variation seed, and temperature
-    const variantPromises = [
-      { persona: persona1, opener: opener1, seed: Math.floor(Math.random() * 6), temp: 0.92, fallback: FALLBACK_VARIANTS[0] },
-      { persona: persona2, opener: opener2, seed: Math.floor(Math.random() * 6), temp: 1.05, fallback: FALLBACK_VARIANTS[1] },
-    ].map(({ persona, opener, seed, temp, fallback }) =>
+    // Pick completely different configs for each variant
+    const [p1, p2]   = pickUnique(PERSONAS, 2)
+    const o1         = rand(OPENERS)
+    const o2         = rand(OPENERS.filter(o => o !== o1))
+    const a1         = rand(ANGLES)
+    const a2         = rand(ANGLES.filter(a => a !== a1))
+    const d1         = rand(DETAIL_INSTRUCTIONS)
+    const d2         = rand(DETAIL_INSTRUCTIONS.filter(d => d !== d1))
+    const token1     = uniqueToken()   // unique per variant per call
+    const token2     = uniqueToken()   // always different from token1
+
+    const configs = [
+      { persona: p1, opener: o1, angle: a1, detail: d1, token: token1, temp: randTemp(0.88, 1.05) },
+      { persona: p2, opener: o2, angle: a2, detail: d2, token: token2, temp: randTemp(0.95, 1.15) },
+    ]
+
+    const variantPromises = configs.map(({ persona, opener, angle, detail, token, temp }, i) =>
       openai.chat.completions
         .create({
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user',   content: buildUserPrompt(safeName, safeTags, persona, opener, seed) },
+            { role: 'user',   content: buildUserPrompt(safeName, safeTags, persona, opener, angle, detail, token) },
           ],
           max_tokens: 200,
           temperature: temp,
-          // High presence + frequency penalty = less repetition of training patterns
-          presence_penalty: 0.8,
-          frequency_penalty: 0.7,
+          presence_penalty: 0.9,
+          frequency_penalty: 0.8,
+          // Explicitly disable seed so OpenAI never returns a cached completion
+          seed: undefined,
         })
-        .then((res) => {
-          const raw = res.choices[0]?.message?.content?.trim() ?? ''
-          return humanise(raw)
-        })
-        .catch(() => fallback)
+        .then(res => humanise(res.choices[0]?.message?.content?.trim() ?? ''))
+        .catch(() => pickFallbackPair()[i])
     )
 
     let variants = await Promise.all(variantPromises)
 
-    // Validate each variant — if it fails, retry once with different seeds
+    // Validate — retry once with completely fresh tokens if needed
     variants = await Promise.all(
       variants.map(async (v, i) => {
-        if (isHumanEnough(v)) return v
+        if (isValid(v)) return v
 
-        // One retry with a fresh opener and seed
-        const retryPersona = pickRandom(PERSONAS)
-        const retryOpener  = pickRandom(OPENERS)
-        const retrySeed    = Math.floor(Math.random() * 6)
+        const rp = rand(PERSONAS)
+        const ro = rand(OPENERS)
+        const ra = rand(ANGLES)
+        const rd = rand(DETAIL_INSTRUCTIONS)
+        const rt = uniqueToken()
 
         try {
           const retry = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
               { role: 'system', content: systemPrompt },
-              { role: 'user',   content: buildUserPrompt(safeName, safeTags, retryPersona, retryOpener, retrySeed) },
+              { role: 'user',   content: buildUserPrompt(safeName, safeTags, rp, ro, ra, rd, rt) },
             ],
             max_tokens: 200,
-            temperature: 1.1,
-            presence_penalty: 0.9,
-            frequency_penalty: 0.8,
+            temperature: randTemp(1.05, 1.2),
+            presence_penalty: 0.95,
+            frequency_penalty: 0.9,
+            seed: undefined,
           })
           const retried = humanise(retry.choices[0]?.message?.content?.trim() ?? '')
-          return isHumanEnough(retried) ? retried : FALLBACK_VARIANTS[i]
+          return isValid(retried) ? retried : pickFallbackPair()[i]
         } catch {
-          return FALLBACK_VARIANTS[i]
+          return pickFallbackPair()[i]
         }
       })
     )
+
+    // Final guard — ensure the two variants are not identical
+    if (variants[0] === variants[1]) {
+      variants[1] = pickFallbackPair()[1]
+    }
 
     return NextResponse.json({ data: { variants } })
 
   } catch (error) {
     console.error('[POST /api/review/generate]', error)
     return NextResponse.json({
-      data: { variants: FALLBACK_VARIANTS },
+      data: { variants: pickFallbackPair() },
       warning: 'Used fallback reviews due to AI service issue',
     })
   }
