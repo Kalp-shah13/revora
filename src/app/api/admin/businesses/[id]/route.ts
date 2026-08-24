@@ -1,4 +1,5 @@
 /**
+ * GET    /api/admin/businesses/[id] — fetch a single business
  * PUT    /api/admin/businesses/[id] — update a business
  * DELETE /api/admin/businesses/[id] — deactivate a business (soft delete)
  * Super admin only — uses service-role client.
@@ -10,14 +11,32 @@ import { updateBusiness } from '@/lib/db'
 import type { Business } from '@/types'
 
 const ALLOWED_UPDATE_FIELDS: Array<keyof Omit<Business, 'id' | 'created_at'>> = [
-  'name',
-  'slug',
-  'google_review_link',
-  'logo_url',
-  'accent_color',
-  'plan',
-  'is_active',
+  'name', 'slug', 'google_review_link', 'logo_url',
+  'accent_color', 'plan', 'is_active',
 ]
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const check = await requireRole('super_admin')
+  if (!check.authorized) return check.response
+
+  try {
+    const { id } = await params
+    const supabase = createServiceRoleClient()
+    const { data, error } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error || !data) return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+    return NextResponse.json({ data })
+  } catch (error) {
+    console.error('[GET /api/admin/businesses/[id]]', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
 
 export async function PUT(
   request: NextRequest,
