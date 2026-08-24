@@ -312,7 +312,6 @@ export default function BusinessDetailDrawer({
         <div className="flex items-start justify-between px-5 py-4 border-b dark:border-slate-800/60 border-slate-200 shrink-0">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5">
-              {/* Show logo thumbnail if available */}
               {currentLogoUrl ? (
                 <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 border dark:border-slate-700 border-slate-200">
                   <Image src={currentLogoUrl} alt="" width={32} height={32} className="w-full h-full object-cover" unoptimized />
