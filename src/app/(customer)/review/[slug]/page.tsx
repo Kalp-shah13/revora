@@ -46,21 +46,8 @@ export default async function ReviewPage({ params, searchParams }: ReviewPagePro
 
           {/* ── Hero header ── */}
           <div className="text-center space-y-3">
-            {/* Logo or icon */}
-            {business.logo_url ? (
-              <div className="flex justify-center mb-1">
-                <Image
-                  src={business.logo_url}
-                  alt={`${business.name} logo`}
-                  width={64}
-                  height={64}
-                  className="rounded-2xl object-cover shadow-md"
-                  priority
-                />
-              </div>
-            ) : null}
 
-            {/* Stars row — large, amber, with "X stars" label */}
+            {/* Stars row */}
             <div className="flex items-center justify-center gap-1.5">
               <div className="flex gap-0.5" aria-label={`${displayStars} out of 5 stars`}>
                 {[1, 2, 3, 4, 5].map((s) => (
@@ -90,6 +77,44 @@ export default async function ReviewPage({ params, searchParams }: ReviewPagePro
                 A few seconds to help others discover this place
               </p>
             </div>
+
+            {/* ── Business logo — shown between heading and review flow ── */}
+            <div className="flex justify-center pt-1">
+              {business.logo_url ? (
+                /* Business has a custom logo */
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-3xl bg-slate-200/60 blur-xl scale-110" aria-hidden="true" />
+                  <Image
+                    src={business.logo_url}
+                    alt={`${business.name} logo`}
+                    width={96}
+                    height={96}
+                    className="relative rounded-3xl object-cover shadow-lg ring-4 ring-white"
+                    priority
+                  />
+                </div>
+              ) : (
+                /* Fallback — initials avatar with accent colour */
+                <div
+                  className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg ring-4 ring-white"
+                  style={{ backgroundColor: accentColor + '22', border: `2px solid ${accentColor}40` }}
+                  aria-hidden="true"
+                >
+                  <span
+                    className="text-3xl font-extrabold"
+                    style={{ color: accentColor }}
+                  >
+                    {business.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Business name */}
+            <p className="text-base font-bold text-slate-800 tracking-tight">
+              {business.name}
+            </p>
+
           </div>
 
           {/* ── Review flow ── */}
@@ -97,7 +122,7 @@ export default async function ReviewPage({ params, searchParams }: ReviewPagePro
             businessId={business.id}
             businessName={business.name}
             googleReviewLink={business.google_review_link}
-            tags={tags.map((t) => ({ id: t.id, label: t.label }))}
+            tags={tags.map((t) => ({ id: t.id, label: t.label, tag_type: t.tag_type }))}
             initialRating={initialRating}
           />
 
