@@ -245,11 +245,13 @@ export async function POST(request: NextRequest) {
     const systemPrompt = buildSystemPrompt()
     const [p1, p2]     = pickUnique(PERSONAS, 2)
 
+    const structure1 = rand(SENTENCE_STRUCTURES)
+
     const configs = [
       {
         persona:   p1,
         opener:    rand(OPENERS),
-        structure: rand(SENTENCE_STRUCTURES),
+        structure: structure1,
         detail:    rand(DETAIL_HINTS),
         token:     uniqueToken(),
         temp:      randTemp(0.88, 1.05),
@@ -257,7 +259,7 @@ export async function POST(request: NextRequest) {
       {
         persona:   p2,
         opener:    rand(OPENERS),
-        structure: rand(SENTENCE_STRUCTURES.filter(s => s !== configs?.[0]?.structure)),
+        structure: rand(SENTENCE_STRUCTURES.filter(s => s !== structure1)),
         detail:    rand(DETAIL_HINTS),
         token:     uniqueToken(),
         temp:      randTemp(0.95, 1.15),
