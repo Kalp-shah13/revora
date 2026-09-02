@@ -116,6 +116,60 @@ function cleanTag(tag: string): string {
     .trim()
 }
 
+// ─── Tag-aware fallback (used only when OpenAI itself is unreachable) ─────────
+// Still builds sentences directly out of the selected tag words, so even the
+// safety-net text reflects what the customer actually picked.
+
+function lowerTag(tag: string): string {
+  // lowercase words, but leave existing all-caps acronyms (e.g. "AI") alone
+  return tag.replace(/\w+/g, w => (/^[A-Z]{2,}$/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1)))
+}
+
+function joinCategoryPhrase(categoryTags: string[]): string {
+  const lowered = categoryTags.map(lowerTag)
+  if (lowered.length === 0) return 'good overall quality'
+  if (lowered.length === 1) return lowered[0]
+  return `${lowered.slice(0, -1).join(', ')} and ${lowered[lowered.length - 1]}`
+}
+
+const FB_SERVICE_OPENERS: Array<(service: string) => string> = [
+  service => `Went in for ${service} and it was handled really well from start to finish.`,
+  service => `Came here for ${service} and the whole visit was smooth and straightforward.`,
+  service => `Visited for ${service} and walked away happy with how everything went.`,
+  service => `Stopped by for ${service} and everything about the visit felt right.`,
+  service => `Tried this place for ${service} after checking around and it was worth it.`,
+  service => `Booked in for ${service} and the whole thing went better than expected.`,
+]
+
+const FB_CATEGORY_CLAUSES: Array<(category: string) => string> = [
+  category => `What stood out most was the ${category}.`,
+  category => `Really appreciated the ${category} throughout.`,
+  category => `The ${category} made the whole thing easy to recommend.`,
+  category => `Everything about it reflected ${category}, which made a real difference.`,
+  category => `Could tell straight away this place values ${category}.`,
+]
+
+const FB_CLOSERS = [
+  'Would go back without thinking twice.',
+  'Already told a friend to check it out.',
+  'Glad I gave it a shot.',
+  'No complaints at all.',
+  'Happy to be a returning customer now.',
+]
+
+function buildTagAwareFallback(serviceTag: string, categoryTags: string[]): [string, string] {
+  const service       = lowerTag(serviceTag)
+  const categoryPhrase = joinCategoryPhrase(categoryTags)
+  const [opener1, opener2] = pickUnique(FB_SERVICE_OPENERS, 2)
+  const [clause1, clause2] = pickUnique(FB_CATEGORY_CLAUSES, 2)
+  const [closer1, closer2] = pickUnique(FB_CLOSERS, 2)
+
+  return [
+    `${opener1(service)} ${clause1(categoryPhrase)} ${closer1}`,
+    `${opener2(service)} ${clause2(categoryPhrase)} ${closer2}`,
+  ]
+}
+
 // ─── Post-processing ──────────────────────────────────────────────────────────
 
 function humanise(text: string): string {
@@ -165,7 +219,8 @@ STRICT RULES:
 - Do not start two sentences with "The".
 - No AI words: amazing, absolutely, incredible, exceeded expectations, truly, seamlessly, testament, top-notch, phenomenal, outstanding, stellar, impeccable, unwavering, delightful, thrilled, blown away, exceptional, remarkable, superb, fantastic, wonderful, perfect, flawless.
 - Sound like a real person — specific, informal, genuine.
-- The review must clearly reflect the selected service and qualities. A reader should be able to guess what tags were selected just by reading it.`
+- The review must clearly reflect the selected service and qualities. A reader should be able to guess what tags were selected just by reading it.
+- Naturally reuse the actual words from the service tag and each category tag somewhere in the review (e.g. if the category tag is "Premium Quality", the words "premium" and "quality" should appear; if the service tag is "Old Gold Exchange", say something like "exchanged my old gold"). Rephrase grammatically so it reads naturally, but do not replace the tag's own words with unrelated synonyms.`
 }
 
 // ─── User prompt ─────────────────────────────────────────────────────────────
@@ -192,7 +247,9 @@ THE CUSTOMER:
 
 The review must be ABOUT "${serviceTag}" — this is what the customer actually did or bought.
 The qualities (${categoryList}) should come through naturally in how you describe the experience.
-Do NOT list the tags. Weave them into a natural story.
+Do NOT list the tags as a label or bullet. Weave them into a natural story, but keep the actual
+words from "${serviceTag}" and "${categoryList}" recognisable in the sentence — do not swap them
+out for different synonyms.
 
 Write as: ${persona.desc}
 Length: ${persona.length}
@@ -207,14 +264,6 @@ Output only the review text.`
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
-  const { allowed } = rateLimit(`generate:${ip}`, { limit: 10, windowMs: 60_000 })
-
-  if (!allowed) {
-    return NextResponse.json(
-      { data: { variants: pickFallbackPair() }, warning: 'Rate limited' },
-      { status: 200 }
-    )
-  }
 
   try {
     const body = await request.json()
@@ -241,6 +290,18 @@ export async function POST(request: NextRequest) {
     // The ReviewBuilder sends service tag first based on how the customer selected it.
     const serviceTag   = cleanTag(rawTags[0])
     const categoryTags = rawTags.slice(1).map(cleanTag).filter(Boolean)
+
+    // Fallback pair built from the actual selected tags — used whenever OpenAI
+    // can't be reached, so even the safety-net text still reflects the tags.
+    const tagFallback = buildTagAwareFallback(serviceTag, categoryTags)
+
+    const { allowed } = rateLimit(`generate:${ip}`, { limit: 10, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { data: { variants: tagFallback }, warning: 'Rate limited' },
+        { status: 200 }
+      )
+    }
 
     const systemPrompt = buildSystemPrompt()
     const [p1, p2]     = pickUnique(PERSONAS, 2)
@@ -281,7 +342,10 @@ export async function POST(request: NextRequest) {
           seed: undefined,
         })
         .then(res => humanise(res.choices[0]?.message?.content?.trim() ?? ''))
-        .catch(() => pickFallbackPair()[i])
+        .catch(err => {
+          console.error('[POST /api/review/generate] OpenAI call failed, using fallback:', err?.message ?? err)
+          return tagFallback[i]
+        })
     )
 
     let variants = await Promise.all(variantPromises)
@@ -305,15 +369,16 @@ export async function POST(request: NextRequest) {
             seed: undefined,
           })
           const retried = humanise(retry.choices[0]?.message?.content?.trim() ?? '')
-          return isValid(retried) ? retried : pickFallbackPair()[i]
-        } catch {
-          return pickFallbackPair()[i]
+          return isValid(retried) ? retried : tagFallback[i]
+        } catch (err) {
+          console.error('[POST /api/review/generate] Retry failed, using fallback:', (err as { message?: string })?.message ?? err)
+          return tagFallback[i]
         }
       })
     )
 
     // Guarantee the two cards are different
-    if (variants[0] === variants[1]) variants[1] = pickFallbackPair()[1]
+    if (variants[0] === variants[1]) variants[1] = tagFallback[1]
 
     return NextResponse.json({ data: { variants } })
 
