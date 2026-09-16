@@ -16,6 +16,7 @@ export function useAutoRefresh(callback: () => void, intervalMs = 30_000) {
   }, [])
 
   useEffect(() => {
+    
     const id = setInterval(tick, intervalMs)
     return () => clearInterval(id)
   }, [tick, intervalMs])
