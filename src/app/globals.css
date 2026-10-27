@@ -5,7 +5,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* Light theme enforced globally - dark variant disabled */
+@custom-variant dark (&:is(.never-dark *));
 
 @theme inline {
   --color-background: var(--background);
@@ -57,7 +58,7 @@
   --font-google-sans: 'Google Sans', 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --font-lato: 'Lato', ui-sans-serif, system-ui, sans-serif;
 
-  /* ─── Colors ─────────────────────────────────────────────────────── */
+  /* ─── Colors (Light Theme Enforced) ──────────────────────────────── */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -92,59 +93,13 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-/* ─── Dashboard background ───────────────────────────────────────── */
+/* ─── Dashboard background (Default Light) ───────────────────────── */
 .dashboard-bg {
-  transition: background 0.4s ease, background-image 0.4s ease;
-}
-
-/* DARK */
-.dark .dashboard-bg {
-  background: #070b14;
-  background-image:
-    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(29, 78, 216, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(109, 40, 217, 0.10) 0%, transparent 60%);
-}
-
-/* LIGHT */
-.light .dashboard-bg {
   background: #f8faff;
   background-image:
     radial-gradient(ellipse 70% 50% at 10% 0%, rgba(59, 130, 246, 0.07) 0%, transparent 60%),
     radial-gradient(ellipse 50% 40% at 90% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 60%);
+  transition: background 0.4s ease, background-image 0.4s ease;
 }
 
 /* ─── Dashboard card ─────────────────────────────────────────────── */

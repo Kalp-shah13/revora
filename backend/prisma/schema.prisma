@@ -1,0 +1,113 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN    @map("super_admin")
+  BUSINESS_OWNER @map("business_owner")
+}
+
+enum Plan {
+  FREE       @map("free")
+  PRO        @map("pro")
+  ENTERPRISE @map("enterprise")
+}
+
+enum TagType {
+  SERVICE  @map("service")
+  CATEGORY @map("category")
+}
+
+enum FeedbackStatus {
+  OPEN     @map("open")
+  RESOLVED @map("resolved")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  fullName     String?    @map("full_name")
+  role         Role       @default(BUSINESS_OWNER)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  businesses   Business[]
+
+  @@map("users")
+}
+
+model Business {
+  id               String       @id @default(uuid())
+  ownerId          String       @map("owner_id")
+  name             String
+  slug             String       @unique
+  googleReviewLink String       @map("google_review_link")
+  logoUrl          String?      @map("logo_url")
+  accentColor      String       @default("#D97706") @map("accent_color")
+  plan             Plan         @default(FREE)
+  isActive         Boolean      @default(true) @map("is_active")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  owner            User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  serviceTags      ServiceTag[]
+  qrScans          QrScan[]
+  reviews          Review[]
+  feedback         Feedback[]
+
+  @@map("businesses")
+}
+
+model ServiceTag {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  label      String
+  tagType    TagType  @default(SERVICE) @map("tag_type")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("service_tags")
+}
+
+model QrScan {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  scannedAt  DateTime @default(now()) @map("scanned_at")
+  userAgent  String?  @map("user_agent")
+
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("qr_scans")
+}
+
+model Review {
+  id                 String   @id @default(uuid())
+  businessId         String   @map("business_id")
+  rating             Int
+  selectedTags       String[] @map("selected_tags")
+  aiVariantChosen    String?  @map("ai_variant_chosen")
+  redirectedToGoogle Boolean  @default(false) @map("redirected_to_google")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model Feedback {
+  id          String         @id @default(uuid())
+  businessId  String         @map("business_id")
+  rating      Int
+  message     String?
+  contactInfo String?        @map("contact_info")
+  status      FeedbackStatus @default(OPEN)
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  business    Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("feedback")
+}

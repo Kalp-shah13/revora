@@ -1,19 +1,33 @@
-# ReviewFlow AI
+# Revora
 
-Google Review Automation SaaS — helps local businesses collect more positive Google reviews while privately capturing negative feedback.
+AI Google Review & Reputation Automation SaaS platform designed for local businesses and multi-location franchises to accelerate positive Google reviews while privately routing negative customer feedback.
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| Database | Supabase (PostgreSQL + RLS) |
-| Auth | Supabase Auth |
-| AI | OpenAI GPT-4o-mini |
-| QR Codes | `qrcode` npm package |
-| Hosting | Vercel |
+| Frontend Framework | Next.js 16 (App Router + Turbopack) |
+| Frontend Language | TypeScript |
+| UI & Styling | Tailwind CSS (Strict Light Theme) + Lucide Icons |
+| Backend Framework | NestJS 12 (Express Engine) |
+| API Standard | RESTful Architecture (`/api/v1`) |
+| Database | PostgreSQL |
+| ORM | Prisma ORM |
+| Authentication | JWT (HTTP-only secure session cookies) + RolesGuard |
+| AI Engines | Google Gemini (`gemini-3.5-flash-lite`) with OpenAI fallback |
+| Email Service | Nodemailer / SMTP (real-time negative feedback alerts) |
+| Print & Stand Studio | Browser vector printing engine with real physical stand formats |
+
+---
+
+## Architecture Overview
+
+Revora uses a decoupled, production-grade microservices-ready structure:
+
+1. **Frontend (`/`)**: Next.js 16 web application handling customer review flows, business owner dashboards, super admin control panel, and the print marketing studio. Protected via Edge proxy ([src/proxy.ts](file:///e:/AI%20Review%20System/AI-Review-System/src/proxy.ts)).
+2. **Backend (`/backend`)**: Modular NestJS application providing authenticated APIs under `/api/v1/`, role-based access control, PostgreSQL persistence via Prisma, AI review generation, QR code generation, and SMTP notification dispatching.
 
 ---
 
@@ -21,162 +35,105 @@ Google Review Automation SaaS — helps local businesses collect more positive G
 
 ### 1. Prerequisites
 - Node.js 18+
-- A Supabase account and project
-- An OpenAI account
+- PostgreSQL database running locally or in Docker (default port: 5432)
+- Google Gemini API Key or OpenAI API Key
 
-### 2. Clone and install
+---
+
+### 2. Backend Setup
+
 ```bash
-git clone <repo-url>
-cd reviewflow-ai
+cd backend
 npm install
 ```
 
-### 3. Configure environment variables
-```bash
-cp .env.example .env.local
-```
-Fill in your values in `.env.local`:
+Create a `.env` file in the `backend/` directory:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-OPENAI_API_KEY=sk-...
+# Database Connection (PostgreSQL)
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/review_system?schema=public"
+
+# JWT Authentication
+JWT_SECRET="revora-jwt-secret-key-change-in-production"
+JWT_EXPIRES_IN="7d"
+
+# Server Port
+PORT=4000
+
+# Frontend URL
+FRONTEND_URL="http://localhost:3000"
+
+# AI Provider (Google Gemini recommended)
+GEMINI_API_KEY="your-gemini-api-key"
+GEMINI_MODEL="gemini-3.5-flash-lite"
+
+# Optional: OpenAI API Key (used as fallback)
+OPENAI_API_KEY=""
+OPENAI_MODEL="gpt-4o-mini"
+
+# SMTP Alerting (Optional)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password"
+SMTP_FROM="Revora Alerts <your-email@gmail.com>"
+```
+
+Run Prisma migrations and seed the database:
+```bash
+npx prisma migrate dev --name init
+npx prisma db seed
+```
+
+Start the backend development server:
+```bash
+npm run start:dev
+```
+Backend API will be active at: `http://localhost:4000/api/v1`
+
+---
+
+### 3. Frontend Setup
+
+In the root directory:
+```bash
+npm install
+```
+
+Create a `.env.local` file:
+```env
+BACKEND_INTERNAL_URL=http://localhost:4000/api/v1
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### 4. Run database migrations
-Go to **Supabase Dashboard → SQL Editor** and run these files in order:
-1. `supabase/migrations/001_create_tables.sql`
-2. `supabase/migrations/002_create_indexes.sql`
-3. `supabase/migrations/003_rls_policies.sql`
-4. `supabase/migrations/004_profiles_trigger.sql`
-5. `supabase/migrations/005_seed_test_business.sql` *(optional test data)*
-
-### 5. Create your super admin account
-1. Supabase Dashboard → Authentication → Users → Add User
-2. After creating, run in SQL Editor:
-```sql
-UPDATE profiles SET role = 'super_admin'
-WHERE id = (SELECT id FROM auth.users WHERE email = 'your@email.com');
-```
-
-### 6. Start the dev server
+Start the frontend development server:
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000)
+Frontend will be accessible at:
+- Local: `http://localhost:3000`
+- Network: `http://192.168.1.200:3000`
 
 ---
 
-## Project Structure
+## Key Routes & URLs
 
-```
-src/
-├── app/
-│   ├── (admin)/admin/          # Super admin panel
-│   ├── (auth)/login/           # Login page
-│   ├── (customer)/review/      # Public review flow + QR print page
-│   ├── (dashboard)/dashboard/  # Business owner dashboard
-│   └── api/                    # All API routes
-│       ├── admin/              # Admin-only endpoints
-│       ├── auth/               # Login/logout
-│       ├── business/           # Public business data
-│       ├── dashboard/          # Business owner endpoints
-│       ├── review/             # Generate + submit reviews
-│       └── scan/               # QR scan logging
-├── components/
-│   ├── admin/                  # Admin panel components
-│   ├── dashboard/              # Dashboard components
-│   ├── review/                 # Customer review flow components
-│   ├── shared/                 # TopNav, UserMenu, ErrorBoundary
-│   └── ui/                     # shadcn/ui components
-├── hooks/
-│   └── useAutoRefresh.ts       # 30s polling hook
-├── lib/
-│   ├── auth.ts                 # Server-side auth helpers
-│   ├── db.ts                   # Typed database query helpers
-│   ├── rate-limit.ts           # In-memory rate limiter
-│   ├── utils.ts                # Shared utilities
-│   └── supabase/               # Supabase client factories
-└── types/
-    ├── database.ts             # Full DB type map
-    └── index.ts                # API + shared types
-```
-
----
-
-## User Roles
-
-| Role | Access |
-|---|---|
-| `super_admin` | `/admin` — manage all businesses, platform analytics |
-| `business_owner` | `/dashboard` — own business only (RLS enforced) |
-| Anonymous | `/review/[slug]` — public review page, no login required |
-
----
-
-## Key URLs
-
-| URL | Description |
-|---|---|
-| `/` | Redirects based on auth state |
-| `/login` | Sign in page |
-| `/dashboard` | Business owner dashboard |
-| `/admin` | Super admin panel |
-| `/review/[slug]` | Customer-facing review page (public) |
-| `/review/[slug]/qr` | Print-friendly QR code page |
-
----
-
-## Deployment to Vercel
-
-### 1. Push to GitHub
-```bash
-git add .
-git commit -m "Initial deployment"
-git push origin main
-```
-
-### 2. Import to Vercel
-1. Go to [vercel.com](https://vercel.com) → New Project
-2. Import your GitHub repository
-3. Framework: **Next.js** (auto-detected)
-
-### 3. Set environment variables
-In Vercel Dashboard → Project → Settings → Environment Variables, add:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
-- `NEXT_PUBLIC_APP_URL` (your production domain e.g. `https://myapp.vercel.app`)
-
-### 4. Create a production Supabase project
-- Create a **separate** Supabase project for production
-- Run all 4 migrations in the production SQL Editor
-- Use production keys in Vercel env vars
-
-### 5. Deploy
-Click **Deploy** — Vercel will build and deploy automatically.
-
----
-
-## Security
-
-- All admin routes verify Supabase session + role server-side
-- Service-role key never exposed to browser
-- RLS policies enforce data isolation per business
-- Input sanitization on all customer-submitted text
-- Rate limiting on public API endpoints (10-30 req/min/IP)
-- HTTPS enforced via Vercel
-
----
-
-## Environment Variables Reference
-
-| Variable | Required | Description |
+| URL | Access | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon/public key (JWT) |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-only) |
-| `OPENAI_API_KEY` | ✅ | OpenAI API key for GPT-4o-mini |
-| `NEXT_PUBLIC_APP_URL` | ✅ | Full URL of your app (used for QR codes) |
+| `/` | Public | Automatic routing based on authentication state |
+| `/login` | Public | Authentication portal |
+| `/dashboard` | Business Owner | Branch management, analytics, private feedback inbox, QR studio |
+| `/admin` | Super Admin | Platform-wide metrics, business creation, and branch drawer |
+| `/review/[slug]` | Public | Customer review flow with AI generation & tag selector |
+| `/review/[slug]/qr` | Public | Print-friendly instant QR display |
+
+---
+
+## Security Features
+
+- **Strict Role-Based Access Control**: Super admin and business owner role verification via NestJS `RolesGuard` and Next.js `proxy.ts`.
+- **IDOR Protection**: Business ownership checks enforced on all feedback and business querying endpoints.
+- **Privilege Escalation Prevention**: Registration endpoints lock user roles strictly to `BUSINESS_OWNER`.
+- **Brute-Force Rate Limiting**: Dedicated `AuthRateLimitGuard` restricts authentication attempts per client IP.
+- **AI Prompt Injection Defense**: Input length limits, prompt delimiters, and system override boundaries to ensure generated reviews stay authentic and grounded.
+- **Zero-Emoji Professional Policy**: Clean corporate interface using SVG Lucide icons and pure light theme.

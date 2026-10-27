@@ -23,10 +23,16 @@ export default function AdminPanel() {
         const rows: BusinessRow[] = (data.data as Array<{
           id: string; name: string; slug: string; plan: string
           is_active: boolean; created_at: string
+          google_review_link?: string
+          logo_url?: string | null
+          accent_color?: string
           profiles?: { full_name: string | null }
           scan_count?: [{ count: number }]
         }>).map((b) => ({
           id: b.id, name: b.name, slug: b.slug, plan: b.plan,
+          google_review_link: b.google_review_link,
+          logo_url: b.logo_url,
+          accent_color: b.accent_color,
           is_active: b.is_active, created_at: b.created_at,
           owner_email: b.profiles?.full_name ?? undefined,
           scan_count: Array.isArray(b.scan_count) ? (b.scan_count[0]?.count ?? 0) : 0,

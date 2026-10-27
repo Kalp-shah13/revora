@@ -13,6 +13,9 @@ export interface BusinessRow {
   id: string
   name: string
   slug: string
+  google_review_link?: string
+  logo_url?: string | null
+  accent_color?: string
   plan: string
   is_active: boolean
   created_at: string

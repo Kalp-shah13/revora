@@ -1,21 +1,42 @@
 import { Suspense } from 'react'
 import { getAuthUser } from '@/lib/auth'
-import { getBusinessByOwnerId, getFeedback, getServiceTags } from '@/lib/db'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getBusinessByOwnerId, getBusinessesByOwnerId, getFeedback, getServiceTags } from '@/lib/db'
 import AnalyticsSection from '@/components/dashboard/AnalyticsSection'
 import DashboardTabs from '@/components/dashboard/DashboardTabs'
+import BranchSwitcher from '@/components/dashboard/BranchSwitcher'
 import ErrorBoundary from '@/components/shared/ErrorBoundary'
-import { AlertCircle, Building2, Sparkles } from 'lucide-react'
+import { AlertCircle, Building2 } from 'lucide-react'
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<{ businessId?: string }>
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const resolvedSearchParams = await searchParams
+  const selectedBusinessId = resolvedSearchParams?.businessId
+
   const auth = await getAuthUser()
   const displayName =
     auth?.profile.full_name || auth?.user.email?.split('@')[0] || 'there'
 
-  const supabase = await createServerSupabaseClient()
-  const business = auth
-    ? await getBusinessByOwnerId(supabase, auth.profile.id)
-    : null
+  // Fetch all businesses owned by this account
+  const allBusinesses = auth
+    ? await getBusinessesByOwnerId(null, auth.profile.id)
+    : []
+
+  // Resolve the active business (either matching requested businessId, or the first/primary business)
+  let business = null
+  if (auth) {
+    if (selectedBusinessId) {
+      business =
+        allBusinesses.find((b) => b.id === selectedBusinessId) ||
+        (await getBusinessByOwnerId(null, auth.profile.id, selectedBusinessId))
+    }
+    if (!business) {
+      business =
+        allBusinesses[0] || (await getBusinessByOwnerId(null, auth.profile.id))
+    }
+  }
 
   if (!business) {
     return (
@@ -46,23 +67,18 @@ export default async function DashboardPage() {
   }
 
   const [feedback, tags] = await Promise.all([
-    getFeedback(supabase, business.id),
-    getServiceTags(supabase, business.id),
+    getFeedback(null, business.id),
+    getServiceTags(null, business.id),
   ])
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      {/* Page header */}
+      {/* Page header with BranchSwitcher */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-            <Building2 className="h-5 w-5 text-blue-400" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-white truncate">{business.name}</h1>
-            <p className="text-xs sm:text-sm text-slate-400">Welcome back, {displayName}</p>
-          </div>
-        </div>
+        <BranchSwitcher
+          currentBusiness={business}
+          businesses={allBusinesses.length > 0 ? allBusinesses : [business]}
+        />
         {/* Live badge */}
         <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1 shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
@@ -73,7 +89,7 @@ export default async function DashboardPage() {
       {/* Analytics */}
       <ErrorBoundary>
         <Suspense fallback={<AnalyticsSkeleton />}>
-          <AnalyticsSection />
+          <AnalyticsSection businessId={business.id} />
         </Suspense>
       </ErrorBoundary>
 
@@ -83,6 +99,7 @@ export default async function DashboardPage() {
           feedback={feedback}
           tags={tags}
           openCount={feedback.filter((f) => f.status === 'open').length}
+          businessId={business.id}
         />
       </ErrorBoundary>
     </div>

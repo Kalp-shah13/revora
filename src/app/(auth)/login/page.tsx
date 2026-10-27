@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="relative w-36 h-36 rounded-full overflow-hidden ring-2 ring-blue-500/30 shadow-[0_0_40px_rgba(59,130,246,0.35)]">
             <Image
               src="/logo.png"
-              alt="ReviewFlow AI"
+              alt="Revora"
               fill
               sizes="144px"
               className="object-cover"
@@ -55,7 +55,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       {/* Footer */}
       <p className="text-center text-xs text-slate-600">
-        © {new Date().getFullYear()} ReviewFlow AI
+        © {new Date().getFullYear()} Revora
       </p>
     </div>
   )

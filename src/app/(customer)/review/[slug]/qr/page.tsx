@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation'
 import QRCode from 'qrcode'
 import { getBusinessBySlug } from '@/lib/db'
-import { createServiceRoleClient } from '@/lib/supabase/service'
 import { getReviewPageUrl } from '@/lib/utils'
 import { Star } from 'lucide-react'
+import QRPrintButton from '@/components/review/QRPrintButton'
 
 interface QRPageProps {
   params: Promise<{ slug: string }>
@@ -15,8 +15,7 @@ interface QRPageProps {
  */
 export default async function QRPrintPage({ params }: QRPageProps) {
   const { slug } = await params
-  const supabase = createServiceRoleClient()
-  const business = await getBusinessBySlug(supabase, slug)
+  const business = await getBusinessBySlug(null, slug)
   if (!business) notFound()
 
   const reviewUrl = getReviewPageUrl(slug)
@@ -73,9 +72,6 @@ export default async function QRPrintPage({ params }: QRPageProps) {
               />
             </div>
           </div>
-
-          {/* URL fallback */}
-          <p className="text-xs text-slate-400 font-mono break-all">{reviewUrl}</p>
         </div>
 
         {/* Stars decoration */}
@@ -86,12 +82,9 @@ export default async function QRPrintPage({ params }: QRPageProps) {
         </div>
 
         {/* Print button — hidden when printing */}
-        <button
-          onClick={() => window.print()}
-          className="print:hidden text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700"
-        >
-          Print this page
-        </button>
+        <div className="pt-2">
+          <QRPrintButton />
+        </div>
       </div>
 
       {/* Print styles */}

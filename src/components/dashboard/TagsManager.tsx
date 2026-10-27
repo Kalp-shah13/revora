@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, X, Loader2, Tag, Wrench, Grid3X3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ServiceTag } from '@/types'
 
 interface TagsManagerProps {
   tags: ServiceTag[]
+  businessId?: string
   loading?: boolean
 }
 
@@ -164,9 +165,13 @@ function TagSection({
 
 // ─── Main TagsManager ─────────────────────────────────────────────────────────
 
-export default function TagsManager({ tags: initialTags, loading }: TagsManagerProps) {
+export default function TagsManager({ tags: initialTags, businessId, loading }: TagsManagerProps) {
   const [tags,       setTags]       = useState<ServiceTag[]>(initialTags)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTags(initialTags)
+  }, [initialTags])
 
   // Normalise: treat tags without tag_type as 'service' (backwards compat)
   const serviceTags  = tags.filter(t => !t.tag_type || t.tag_type === 'service')
@@ -176,7 +181,7 @@ export default function TagsManager({ tags: initialTags, loading }: TagsManagerP
     const res = await fetch('/api/dashboard/tags', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, tag_type: type }),
+      body: JSON.stringify({ label, tag_type: type, business_id: businessId }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Failed to add tag')

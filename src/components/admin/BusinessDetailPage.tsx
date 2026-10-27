@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { ArrowLeft, ExternalLink, QrCode, Tag, BarChart2, Loader2, Download } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -71,9 +72,15 @@ export default function BusinessDetailPage({ business }: { business: BusinessRow
             Back to businesses
           </Link>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
-              <span className="text-blue-400 text-sm font-bold uppercase">{business.name[0]}</span>
-            </div>
+            {business.logo_url ? (
+              <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 border dark:border-slate-700 border-slate-200">
+                <Image src={business.logo_url} alt="" width={44} height={44} className="w-full h-full object-cover" unoptimized />
+              </div>
+            ) : (
+              <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                <span className="text-blue-400 text-sm font-bold uppercase">{business.name[0]}</span>
+              </div>
+            )}
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold dark:text-white text-slate-900 truncate">
                 {business.name}
@@ -104,18 +111,34 @@ export default function BusinessDetailPage({ business }: { business: BusinessRow
           </div>
         </div>
 
-        <button
-          onClick={() => window.open(`/review/${business.slug}`, '_blank')}
-          className="h-10 px-4 rounded-xl text-sm font-medium flex items-center gap-2
-            dark:border-slate-700/50 border-slate-200 border
-            dark:text-slate-300 text-slate-600
-            dark:hover:bg-slate-800 hover:bg-slate-50
-            transition-all duration-200"
-          aria-label="Preview review page"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          Preview
-        </button>
+        <div className="flex items-center gap-2">
+          {business.google_review_link && (
+            <button
+              onClick={() => window.open(business.google_review_link, '_blank', 'noopener,noreferrer')}
+              className="h-10 px-4 rounded-xl text-sm font-medium flex items-center gap-2
+                bg-blue-600/10 border border-blue-500/30 text-blue-400
+                hover:bg-blue-600/20 hover:text-blue-300
+                transition-all duration-200"
+              aria-label="Test Google Review Link"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Google Link
+            </button>
+          )}
+
+          <button
+            onClick={() => window.open(`/review/${business.slug}`, '_blank')}
+            className="h-10 px-4 rounded-xl text-sm font-medium flex items-center gap-2
+              dark:border-slate-700/50 border-slate-200 border
+              dark:text-slate-300 text-slate-600
+              dark:hover:bg-slate-800 hover:bg-slate-50
+              transition-all duration-200"
+            aria-label="Preview review page"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            Preview
+          </button>
+        </div>
       </div>
 
       <div className="dashboard-card rounded-2xl overflow-hidden">

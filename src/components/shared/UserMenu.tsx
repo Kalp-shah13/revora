@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogOut, ChevronDown, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -31,7 +30,7 @@ export default function UserMenu({ email, fullName, role }: UserMenuProps) {
   async function handleLogout() {
     setLoggingOut(true)
     try {
-      await createClient().auth.signOut()
+      await fetch('/api/auth/logout', { method: 'POST' })
       router.push('/login')
       router.refresh()
     } catch {

@@ -70,3 +70,47 @@ export function getReviewPageUrl(slug: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   return `${baseUrl}/review/${slug}`
 }
+
+/**
+ * Robust universal clipboard copy helper.
+ * Works across desktop, mobile browsers, HTTPS, and non-HTTPS LAN IP (http://192.168.x.x)
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  const clean = text.trim()
+  if (!clean) return false
+
+  // 1. Try modern Clipboard API if available and context is secure
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof window !== 'undefined' && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(clean)
+      return true
+    } catch {
+      // Fall through to legacy execCommand
+    }
+  }
+
+  // 2. Universal fallback using textarea + execCommand for HTTP/LAN mobile
+  if (typeof document !== 'undefined') {
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = clean
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      textarea.style.top = '-9999px'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      textarea.setSelectionRange(0, clean.length)
+      const success = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return success
+    } catch {
+      return false
+    }
+  }
+
+  return false
+}
+

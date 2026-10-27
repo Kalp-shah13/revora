@@ -1,54 +1,73 @@
 /**
  * Auth helper utilities — server-side only.
- * Use in API routes and Server Components to verify session and role.
+ * Reads the HTTP-only access_token cookie and verifies session with NestJS.
  */
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import type { UserRole, Profile } from '@/types'
+import { cookies } from 'next/headers';
+import type { UserRole, Profile } from '@/types';
 
 export type AuthUser = {
-  user: { id: string; email?: string }
-  profile: Profile
-}
+  user: { id: string; email?: string };
+  profile: Profile;
+};
+
+const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || 'http://localhost:4000/api/v1';
 
 /**
  * Get the currently authenticated user + their profile (with role).
  * Returns null if not authenticated.
  */
 export async function getAuthUser(): Promise<AuthUser | null> {
-  const supabase = await createServerSupabaseClient()
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('access_token')?.value;
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+    if (!token) return null;
 
-  if (authError || !user) return null
+    const res = await fetch(`${BACKEND_URL}/auth/me`, {
+      headers: {
+        Cookie: `access_token=${token}`,
+        Authorization: `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
 
-  const { data: profileRow, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, created_at')
-    .eq('id', user.id)
-    .single()
+    if (!res.ok) return null;
 
-  if (profileError || !profileRow) return null
+    const json = await res.json();
+    if (!json?.data?.user) return null;
 
-  // Cast to Profile — the shape matches the DB row exactly
-  const profile = profileRow as unknown as Profile
+    const u = json.data.user;
 
-  return { user, profile }
+    const profile: Profile = {
+      id: u.id,
+      full_name: u.full_name || null,
+      role: (u.role || 'business_owner') as UserRole,
+      created_at: u.created_at || new Date().toISOString(),
+    };
+
+    return {
+      user: {
+        id: u.id,
+        email: u.email,
+      },
+      profile,
+    };
+  } catch (error) {
+    console.error('[getAuthUser] Error verifying session with NestJS:', error);
+    return null;
+  }
 }
 
-type AuthorizedResult = { authorized: true; auth: AuthUser }
-type UnauthorizedResult = { authorized: false; response: Response }
+type AuthorizedResult = { authorized: true; auth: AuthUser };
+type UnauthorizedResult = { authorized: false; response: Response };
 
 /**
  * Require a specific role. Returns the user+profile or a 401/403 Response.
- * Use this inside API route handlers.
  */
 export async function requireRole(
-  requiredRole: UserRole
+  requiredRole: UserRole,
 ): Promise<AuthorizedResult | UnauthorizedResult> {
-  const auth = await getAuthUser()
+  const auth = await getAuthUser();
 
   if (!auth) {
     return {
@@ -57,7 +76,7 @@ export async function requireRole(
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       }),
-    }
+    };
   }
 
   if (auth.profile.role !== requiredRole) {
@@ -67,17 +86,17 @@ export async function requireRole(
         status: 403,
         headers: { 'Content-Type': 'application/json' },
       }),
-    }
+    };
   }
 
-  return { authorized: true, auth }
+  return { authorized: true, auth };
 }
 
 /**
  * Require authentication (any role). Returns the user+profile or a 401 Response.
  */
 export async function requireAuth(): Promise<AuthorizedResult | UnauthorizedResult> {
-  const auth = await getAuthUser()
+  const auth = await getAuthUser();
 
   if (!auth) {
     return {
@@ -86,8 +105,8 @@ export async function requireAuth(): Promise<AuthorizedResult | UnauthorizedResu
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       }),
-    }
+    };
   }
 
-  return { authorized: true, auth }
+  return { authorized: true, auth };
 }

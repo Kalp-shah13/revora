@@ -10,7 +10,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'dark',
+  theme: 'light',
   toggle: () => {},
 })
 
@@ -19,36 +19,28 @@ export function useTheme() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
+  const [theme, setTheme] = useState<Theme>('light')
   const [mounted, setMounted] = useState(false)
 
-  // Read saved preference on mount
+  // Enforce light theme on mount
   useEffect(() => {
-    const saved = localStorage.getItem('rf-theme') as Theme | null
-    const preferred = saved ?? 'dark'
-    setTheme(preferred)
-    applyTheme(preferred)
+    localStorage.setItem('rf-theme', 'light')
+    const root = document.documentElement
+    root.classList.remove('dark')
+    root.classList.add('light')
+    setTheme('light')
     setMounted(true)
   }, [])
 
-  function applyTheme(t: Theme) {
+  function applyTheme(_t: Theme) {
     const root = document.documentElement
-    if (t === 'dark') {
-      root.classList.add('dark')
-      root.classList.remove('light')
-    } else {
-      root.classList.remove('dark')
-      root.classList.add('light')
-    }
+    root.classList.remove('dark')
+    root.classList.add('light')
   }
 
   function toggle() {
-    setTheme(prev => {
-      const next: Theme = prev === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('rf-theme', next)
-      applyTheme(next)
-      return next
-    })
+    // Light-only theme enforced
+    applyTheme('light')
   }
 
   // Prevent flash — hide until mounted

@@ -8,7 +8,7 @@ import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { formatPercent, formatRating } from '@/lib/utils'
 import type { AnalyticsData } from '@/types'
 
-export default function AnalyticsSection() {
+export default function AnalyticsSection({ businessId }: { businessId?: string }) {
   const [data,         setData]         = useState<AnalyticsData | null>(null)
   const [loading,      setLoading]      = useState(true)
   const [lastRefreshed,setLastRefreshed]= useState<Date>(new Date())
@@ -16,13 +16,16 @@ export default function AnalyticsSection() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/analytics')
+      const url = businessId
+        ? `/api/dashboard/analytics?businessId=${encodeURIComponent(businessId)}`
+        : '/api/dashboard/analytics'
+      const res = await fetch(url)
       if (!res.ok) return
       const json = await res.json()
       if (json.data) { setData(json.data); setLastRefreshed(new Date()) }
     } catch { /* ignore */ }
     finally    { setLoading(false); setRefreshing(false) }
-  }, [])
+  }, [businessId])
 
   useEffect(() => { fetchAnalytics() }, [fetchAnalytics])
   useAutoRefresh(fetchAnalytics, 30_000)

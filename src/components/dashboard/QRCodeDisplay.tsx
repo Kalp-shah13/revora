@@ -2,23 +2,32 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Download, Link2, Check, Loader2, QrCode, Printer } from 'lucide-react'
+import { Download, Link2, Check, Loader2, QrCode, Printer, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import PrintStudioModal from './PrintStudioModal'
 
 interface QRData {
   review_url: string
   png_data_url: string
   svg: string
+  business_name?: string
+  accent_color?: string
 }
 
-export default function QRCodeDisplay() {
-  const [qrData, setQrData]   = useState<QRData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
-  const [copied, setCopied]   = useState(false)
+export default function QRCodeDisplay({ businessId }: { businessId?: string }) {
+  const [qrData, setQrData]       = useState<QRData | null>(null)
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
+  const [copied, setCopied]       = useState(false)
+  const [studioOpen, setStudioOpen] = useState(false)
 
   useEffect(() => {
-    fetch('/api/dashboard/qr')
+    setLoading(true)
+    const url = businessId
+      ? `/api/dashboard/qr?businessId=${encodeURIComponent(businessId)}`
+      : '/api/dashboard/qr'
+
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         if (d.data) setQrData(d.data)
@@ -26,7 +35,7 @@ export default function QRCodeDisplay() {
       })
       .catch(() => setError('Could not load QR code'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [businessId])
 
   async function copyLink() {
     if (!qrData) return
@@ -72,19 +81,19 @@ export default function QRCodeDisplay() {
   if (error || !qrData) {
     return (
       <div className="text-center py-10 space-y-3">
-        <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto">
-          <QrCode className="h-6 w-6 text-slate-600" aria-hidden="true" />
+        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto">
+          <QrCode className="h-6 w-6 text-slate-400" aria-hidden="true" />
         </div>
-        <p className="text-sm text-slate-400">{error ?? 'QR code unavailable'}</p>
+        <p className="text-sm text-slate-500">{error ?? 'QR code unavailable'}</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-5">
-      {/* QR image — with neon glow frame */}
+      {/* QR image — with crisp light frame */}
       <div className="flex justify-center">
-        <div className="relative p-3 sm:p-4 bg-white rounded-2xl shadow-2xl shadow-blue-500/20 ring-1 ring-blue-500/20 inline-block">
+        <div className="relative p-3 sm:p-4 bg-white rounded-2xl shadow-lg border border-slate-200 inline-block">
           <Image
             src={qrData.png_data_url}
             alt="QR code for your review page"
@@ -97,9 +106,9 @@ export default function QRCodeDisplay() {
       </div>
 
       {/* Review URL */}
-      <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/50 rounded-xl px-3 py-2.5">
-        <Link2 className="h-4 w-4 text-slate-500 shrink-0" aria-hidden="true" />
-        <p className="text-xs text-slate-400 truncate flex-1 font-mono">
+      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+        <Link2 className="h-4 w-4 text-slate-400 shrink-0" aria-hidden="true" />
+        <p className="text-xs text-slate-600 truncate flex-1 font-mono">
           {qrData.review_url}
         </p>
         <button
@@ -107,8 +116,8 @@ export default function QRCodeDisplay() {
           className={cn(
             'h-7 px-2.5 rounded-lg text-xs font-medium shrink-0 flex items-center gap-1 transition-all',
             copied
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+              : 'bg-white text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300 shadow-xs'
           )}
           aria-label={copied ? 'Link copied' : 'Copy review link'}
         >
@@ -128,7 +137,7 @@ export default function QRCodeDisplay() {
           <button
             key={label}
             onClick={action}
-            className="h-10 rounded-xl border border-slate-700/50 bg-slate-900/60 text-sm text-slate-300 hover:text-white hover:border-slate-600 transition-all flex items-center justify-center gap-1.5 active:scale-95"
+            className="h-10 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:text-slate-900 hover:border-slate-300 shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
             aria-label={`Download QR code as ${label}`}
           >
             <Download className="h-4 w-4" aria-hidden="true" />
@@ -137,22 +146,31 @@ export default function QRCodeDisplay() {
         ))}
       </div>
 
-      {/* Print page */}
+      {/* Open Stand & Marketing Material Studio */}
       <button
-        onClick={() => {
-          const slug = qrData.review_url.split('/review/')[1]
-          if (slug) window.open(`/review/${slug}/qr`, '_blank')
-        }}
-        className="w-full h-10 rounded-xl border border-blue-500/30 bg-blue-500/10 text-sm text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2 active:scale-95"
-        aria-label="Open print-friendly QR page"
+        onClick={() => setStudioOpen(true)}
+        className="w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+        aria-label="Open Marketing Stand & Print Studio"
       >
-        <Printer className="h-4 w-4" aria-hidden="true" />
-        Print-Ready QR Page
+        <Sparkles className="h-4 w-4 text-amber-300" aria-hidden="true" />
+        <span>Open Stand &amp; Print Studio</span>
       </button>
 
+
+
       <p className="text-xs text-slate-500 text-center">
-        Print and display at your location
+        Create physical acrylic stands, table tents &amp; decals
       </p>
+
+      {/* Modal Studio */}
+      <PrintStudioModal
+        isOpen={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        businessName={qrData.business_name || 'Your Business'}
+        reviewUrl={qrData.review_url}
+        qrPngUrl={qrData.png_data_url}
+        accentColor={qrData.accent_color}
+      />
     </div>
   )
 }

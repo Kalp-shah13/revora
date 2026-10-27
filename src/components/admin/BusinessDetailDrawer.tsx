@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, ExternalLink, QrCode, Tag, BarChart2, Loader2, Download, Settings, Upload, Check, ImageIcon } from 'lucide-react'
+import { X, ExternalLink, QrCode, Tag, BarChart2, Loader2, Download, Settings, Upload, Check, ImageIcon, AlertCircle, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import RatingChart from '@/components/dashboard/RatingChart'
 import { formatPercent, formatRating } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
+import { validateGoogleReviewLink } from '@/lib/google-link'
 import type { BusinessRow } from './BusinessTable'
 
 interface AnalyticsData {
@@ -26,6 +27,135 @@ const TABS: { id: DrawerTab; label: string; icon: typeof BarChart2 }[] = [
   { id: 'qr',        label: 'QR Code',   icon: QrCode    },
   { id: 'settings',  label: 'Settings',  icon: Settings  },
 ]
+
+// ─── Google Review Link Editor ───────────────────────────────────────────────
+
+function GoogleReviewLinkEditor({
+  businessId,
+  currentGoogleLink,
+  businessName,
+  onSaved,
+}: {
+  businessId: string
+  currentGoogleLink?: string
+  businessName: string
+  onSaved: (url: string) => void
+}) {
+  const [link, setLink] = useState(currentGoogleLink ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLink(currentGoogleLink ?? '')
+  }, [currentGoogleLink])
+
+  const validation = link.trim() ? validateGoogleReviewLink(link.trim()) : null
+
+  async function handleSave() {
+    if (!link.trim()) {
+      setError('Please provide a Google Review Link or Place ID')
+      return
+    }
+    if (validation && !validation.isValid) {
+      setError(validation.error || 'Invalid Google Review Link')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const normalized = validation?.normalizedUrl || link.trim()
+      const res = await fetch(`/api/admin/businesses/${businessId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ google_review_link: normalized }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to update Google review link')
+      setSaved(true)
+      onSaved(normalized)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+          <Sparkles className="h-4 w-4 text-blue-400" aria-hidden="true" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold dark:text-white text-slate-900">Google Review Destination</h3>
+          <p className="text-xs dark:text-slate-400 text-slate-500">
+            Where positive (4-star and 5-star) customers are directed to post their review
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="https://search.google.com/local/writereview?placeid=... or ChIJ..."
+            value={link}
+            onChange={(e) => {
+              setLink(e.target.value)
+              setError(null)
+              setSaved(false)
+            }}
+            className="flex-1 h-10 px-3.5 rounded-xl text-xs dark:bg-slate-900/60 bg-slate-100 border dark:border-slate-800/80 border-slate-200 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          />
+          {validation?.isValid && validation.normalizedUrl && (
+            <button
+              type="button"
+              onClick={() => window.open(validation.normalizedUrl, '_blank', 'noopener,noreferrer')}
+              className="h-10 px-3 rounded-xl text-xs font-semibold flex items-center gap-1.5 dark:bg-slate-800 bg-slate-100 text-blue-400 hover:text-blue-300 border dark:border-slate-700 border-slate-200 transition-all shrink-0"
+              title="Test Google review link"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Test
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !link.trim() || link === currentGoogleLink}
+            className="h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:pointer-events-none transition-all shadow-md shadow-blue-500/20 shrink-0"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : null}
+            {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+          </button>
+        </div>
+
+        {validation && (
+          validation.isValid ? (
+            <p className="text-[11px] text-emerald-400 flex items-center gap-1 font-medium">
+              <Check className="h-3 w-3" />
+              Valid {validation.kind === 'place_id' ? 'Place ID (auto-formatted)' : validation.kind === 'shortlink' ? 'Shortlink' : 'Review Link'}
+            </p>
+          ) : (
+            <p className="text-[11px] text-amber-400 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {validation.error}
+            </p>
+          )
+        )}
+
+        {error && (
+          <p className="text-[11px] text-red-400 flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ─── Logo uploader component ──────────────────────────────────────────────────
 
@@ -247,18 +377,24 @@ export default function BusinessDetailDrawer({
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
   const [loadingQr,        setLoadingQr]        = useState(false)
   const [currentLogoUrl,   setCurrentLogoUrl]   = useState<string | null>(null)
+  const [currentGoogleLink, setCurrentGoogleLink] = useState<string>(business?.google_review_link ?? '')
 
   useEffect(() => {
     if (!business) {
       setAnalytics(null); setTags([]); setQrPng(null)
-      setActiveTab('analytics'); setCurrentLogoUrl(null)
+      setActiveTab('analytics'); setCurrentLogoUrl(null); setCurrentGoogleLink('')
       return
     }
 
-    // Fetch current logo_url from business details
+    setCurrentGoogleLink(business.google_review_link ?? '')
+
+    // Fetch current logo_url & google_review_link from business details
     fetch(`/api/admin/businesses/${business.id}`)
       .then(r => r.json())
-      .then(d => { if (d.data?.logo_url) setCurrentLogoUrl(d.data.logo_url) })
+      .then(d => {
+        if (d.data?.logo_url) setCurrentLogoUrl(d.data.logo_url)
+        if (d.data?.google_review_link) setCurrentGoogleLink(d.data.google_review_link)
+      })
       .catch(() => {})
 
     setLoadingAnalytics(true)
@@ -344,6 +480,17 @@ export default function BusinessDetailDrawer({
           </div>
 
           <div className="flex items-center gap-2 shrink-0 ml-3">
+            {currentGoogleLink && (
+              <button
+                onClick={() => window.open(currentGoogleLink, '_blank', 'noopener,noreferrer')}
+                className="h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5
+                  bg-blue-600/10 border border-blue-500/30 text-blue-400
+                  hover:bg-blue-600/20 hover:text-blue-300 transition-all duration-200"
+                aria-label="Test Google review link"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />Google
+              </button>
+            )}
             <button
               onClick={() => window.open(`/review/${business.slug}`, '_blank')}
               className="h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5
@@ -486,14 +633,24 @@ export default function BusinessDetailDrawer({
             )
           )}
 
-          {/* ── Settings — Logo upload ── */}
+          {/* ── Settings — Google Link & Logo ── */}
           {activeTab === 'settings' && (
-            <LogoUploader
-              businessId={business.id}
-              currentLogoUrl={currentLogoUrl}
-              businessName={business.name}
-              onSaved={(url) => setCurrentLogoUrl(url || null)}
-            />
+            <div className="space-y-6">
+              <GoogleReviewLinkEditor
+                businessId={business.id}
+                currentGoogleLink={currentGoogleLink}
+                businessName={business.name}
+                onSaved={(url) => setCurrentGoogleLink(url)}
+              />
+              <div className="pt-4 border-t dark:border-slate-800/80 border-slate-200">
+                <LogoUploader
+                  businessId={business.id}
+                  currentLogoUrl={currentLogoUrl}
+                  businessName={business.name}
+                  onSaved={(url) => setCurrentLogoUrl(url || null)}
+                />
+              </div>
+            </div>
           )}
 
         </div>
