@@ -52,7 +52,11 @@ export async function getAuthUser(): Promise<AuthUser | null> {
       },
       profile,
     };
-  } catch (error) {
+  } catch (error: any) {
+    // Allow Next.js to cleanly opt into dynamic server rendering without noisy console logs
+    if (error?.digest === 'DYNAMIC_SERVER_USAGE' || error?.message?.includes('Dynamic server usage')) {
+      throw error;
+    }
     console.error('[getAuthUser] Error verifying session with NestJS:', error);
     return null;
   }

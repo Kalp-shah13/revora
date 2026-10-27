@@ -3,6 +3,8 @@ import { getAuthUser } from '@/lib/auth'
 import LoginForm from './LoginForm'
 import Image from 'next/image'
 
+export const dynamic = 'force-dynamic'
+
 interface LoginPageProps {
   searchParams: Promise<{ redirectTo?: string; error?: string }>
 }

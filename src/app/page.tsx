@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getAuthUser } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Root page — immediately redirect based on auth state + role.
  * - Not authenticated  → /login
