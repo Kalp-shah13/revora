@@ -22,20 +22,50 @@ async function bootstrap() {
     }),
   );
 
-  // CORS configuration for Next.js frontend communication (supports localhost and local network / LAN IPs)
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  // CORS configuration: strictly allow configured frontend origins
+  const isProduction = process.env.NODE_ENV === 'production';
+  const configuredOrigins = (
+    process.env.CORS_ORIGINS ||
+    process.env.FRONTEND_URL ||
+    'http://localhost:3000'
+  )
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const allowedOriginsSet = new Set(configuredOrigins);
+
   app.enableCors({
     origin: (origin, callback) => {
-      if (
-        !origin ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
-        /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(origin) ||
-        (frontendUrl && origin === frontendUrl)
-      ) {
+      // Allow requests with no origin (e.g. mobile apps, curl, same-origin server requests)
+      if (!origin) {
         return callback(null, true);
       }
-      return callback(null, true);
+
+      // Check configured exact origins
+      if (allowedOriginsSet.has(origin)) {
+        return callback(null, true);
+      }
+
+      // In local development only, allow explicit localhost/127.0.0.1 or LAN IPs
+      if (!isProduction) {
+        try {
+          const parsed = new URL(origin);
+          const hostname = parsed.hostname;
+          if (
+            hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+            /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)
+          ) {
+            return callback(null, true);
+          }
+        } catch {
+          // Fall through to reject
+        }
+      }
+
+      return callback(new Error('Request blocked by CORS policy'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

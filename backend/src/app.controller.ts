@@ -6,6 +6,6 @@ export class AppController {
   @Public()
   @Get('health')
   getHealth() {
-    return { status: 'ok', service: 'GleamAI Backend API', timestamp: new Date().toISOString() };
+    return { status: 'ok', service: 'Revora Backend API', timestamp: new Date().toISOString() };
   }
 }

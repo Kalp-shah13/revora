@@ -26,7 +26,10 @@ export class AuthService {
       where: { email: email.toLowerCase() },
     });
 
+    // Constant-time dummy hash comparison to prevent user enumeration via timing
+    const DUMMY_HASH = '$2b$12$e80yqV0/4D8o7u1K0Q9gOeG4mG4M2x6bJ6p0u0k0e0g0e0g0e0g0e';
     if (!user) {
+      await bcrypt.compare(pass, DUMMY_HASH);
       return null;
     }
 
@@ -52,7 +55,7 @@ export class AuthService {
 
     const token = this.jwtService.sign(payload);
 
-    // Set HTTP-only cookie
+    // Set secure HTTP-only cookie
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
     res.cookie('access_token', token, {
       httpOnly: true,
@@ -70,11 +73,11 @@ export class AuthService {
       created_at: user.createdAt,
     };
 
+    // Return user profile only; do not expose access_token in JSON body (enforces HttpOnly cookie protection)
     return {
       data: {
         user: userProfile,
         profile: userProfile,
-        access_token: token,
       },
     };
   }
@@ -88,7 +91,8 @@ export class AuthService {
       throw new ConflictException('An account with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+    // Cost factor 12 for robust brute-force resistance
+    const hashedPassword = await bcrypt.hash(registerDto.password, 12);
     const fullName = registerDto.fullName || registerDto.full_name || null;
     const role = Role.BUSINESS_OWNER;
 

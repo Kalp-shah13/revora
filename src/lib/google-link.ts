@@ -6,6 +6,18 @@ export interface GoogleLinkValidationResult {
   error?: string;
 }
 
+const ALLOWED_GOOGLE_HOSTS = new Set([
+  'search.google.com',
+  'www.google.com',
+  'google.com',
+  'maps.google.com',
+  'g.page',
+  'maps.app.goo.gl',
+  'goo.gl',
+  'www.google.co.in',
+  'google.co.in',
+]);
+
 /**
  * Validates and normalizes various forms of Google Review links and Place IDs on the client side.
  */
@@ -19,8 +31,8 @@ export function validateGoogleReviewLink(rawInput: string): GoogleLinkValidation
 
   const trimmed = rawInput.trim();
 
-  // 1. Raw Google Place ID check (e.g. starts with ChIJ and has 15+ chars)
-  const placeIdRegex = /^ChIJ[a-zA-Z0-9_-]{15,}$/;
+  // 1. Raw Google Place ID check (e.g. starts with ChIJ and has 15-40 chars)
+  const placeIdRegex = /^ChIJ[a-zA-Z0-9_-]{15,40}$/;
   if (placeIdRegex.test(trimmed)) {
     return {
       isValid: true,
@@ -44,34 +56,53 @@ export function validateGoogleReviewLink(rawInput: string): GoogleLinkValidation
     };
   }
 
+  // Enforce HTTPS
+  if (parsedUrl.protocol !== 'https:') {
+    return {
+      isValid: false,
+      error: 'Google review link must use secure HTTPS protocol',
+    };
+  }
+
   const hostname = parsedUrl.hostname.toLowerCase();
   const pathname = parsedUrl.pathname;
   const searchParams = parsedUrl.searchParams;
 
+  // Strict domain allowlist validation
+  if (!ALLOWED_GOOGLE_HOSTS.has(hostname) && !hostname.endsWith('.g.page')) {
+    return {
+      isValid: false,
+      error: 'URL host must belong to an official Google domain (search.google.com, g.page, goo.gl, etc.)',
+    };
+  }
+
   // 2. Direct search.google.com writereview / reviews
   if (
-    hostname.includes('search.google.com') ||
-    hostname.includes('google.com')
+    hostname === 'search.google.com' ||
+    hostname === 'www.google.com' ||
+    hostname === 'google.com' ||
+    hostname === 'www.google.co.in' ||
+    hostname === 'google.co.in'
   ) {
     const placeIdParam = searchParams.get('placeid');
-    if (placeIdParam && placeIdParam.trim().length >= 10) {
+    if (placeIdParam && /^[a-zA-Z0-9_-]{10,60}$/.test(placeIdParam.trim())) {
       return {
         isValid: true,
         kind: 'direct_url',
         placeId: placeIdParam.trim(),
-        normalizedUrl: `https://search.google.com/local/writereview?placeid=${placeIdParam.trim()}`,
+        normalizedUrl: `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeIdParam.trim())}`,
       };
     }
 
     const qParam = searchParams.get('q');
     if (qParam && qParam.startsWith('place_id:')) {
       const extractedPlaceId = qParam.replace('place_id:', '').trim();
-      if (extractedPlaceId.length >= 10) {
+      if (/^[a-zA-Z0-9_-]{10,60}$/.test(extractedPlaceId)) {
         return {
           isValid: true,
           kind: 'direct_url',
           placeId: extractedPlaceId,
-          normalizedUrl: `https://search.google.com/local/writereview?placeid=${extractedPlaceId}`,
+          normalizedUrl: `https://search.google.com/local/writereview?placeid=${encodeURIComponent(extractedPlaceId)}`,
         };
       }
     }
@@ -79,7 +110,7 @@ export function validateGoogleReviewLink(rawInput: string): GoogleLinkValidation
 
   // 3. Google Business Profile shortlink (g.page/r/...)
   if (hostname === 'g.page' || hostname.endsWith('.g.page')) {
-    if (pathname.includes('/r/')) {
+    if (pathname.startsWith('/r/') && pathname.length > 5) {
       let cleanPath = pathname;
       if (!cleanPath.endsWith('/review')) {
         cleanPath = `${cleanPath.replace(/\/+$/, '')}/review`;
@@ -96,17 +127,13 @@ export function validateGoogleReviewLink(rawInput: string): GoogleLinkValidation
     };
   }
 
-  // 4. Short Maps links (maps.app.goo.gl or goo.gl/maps)
-  if (
-    hostname === 'maps.app.goo.gl' ||
-    hostname === 'goo.gl' ||
-    (hostname.includes('google.') && pathname.startsWith('/maps'))
-  ) {
-    if (pathname.length > 5) {
+  // 4. Short Maps links (maps.app.goo.gl or goo.gl)
+  if (hostname === 'maps.app.goo.gl' || hostname === 'goo.gl') {
+    if (pathname.length > 3 && pathname !== '/') {
       return {
         isValid: true,
         kind: 'maps_link',
-        normalizedUrl: parsedUrl.toString(),
+        normalizedUrl: `https://${hostname}${pathname}${parsedUrl.search}`,
       };
     }
     return {
@@ -115,8 +142,11 @@ export function validateGoogleReviewLink(rawInput: string): GoogleLinkValidation
     };
   }
 
-  // 5. Test/development placeholder exception
-  if (trimmed.includes('placeid=test')) {
+  // 5. Development-only placeholder
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    trimmed === 'https://search.google.com/local/writereview?placeid=test'
+  ) {
     return {
       isValid: true,
       kind: 'test',

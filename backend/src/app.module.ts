@@ -20,6 +20,19 @@ import { RolesGuard } from './common/guards/roles.guard';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: (env: Record<string, any>) => {
+        if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) {
+          throw new Error(
+            'FATAL SECURITY CONFIG ERROR: JWT_SECRET must be set in your .env and be at least 32 characters long.',
+          );
+        }
+        if (!env.DATABASE_URL) {
+          throw new Error(
+            'FATAL CONFIG ERROR: DATABASE_URL must be defined in your .env.',
+          );
+        }
+        return env;
+      },
     }),
     PrismaModule,
     AuthModule,

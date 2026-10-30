@@ -28,7 +28,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'reviewflow-jwt-super-secret-key-change-me',
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      algorithms: ['HS256'],
     });
   }
 

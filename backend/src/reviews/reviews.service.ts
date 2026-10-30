@@ -231,8 +231,8 @@ function humanise(text: string): string {
 type Length = 'short' | 'medium' | 'detailed';
 
 const LENGTH_SPEC: Record<Length, { minSent: number; maxSent: number; maxWords: number; maxTokens: number; guide: string }> = {
-  short:    { minSent: 1, maxSent: 2, maxWords: 35,  maxTokens: 85,  guide: '1-2 sentences, under 35 words total.' },
-  medium:   { minSent: 3, maxSent: 4, maxWords: 70,  maxTokens: 160, guide: '3-4 sentences, 45-70 words total.' },
+  short: { minSent: 1, maxSent: 2, maxWords: 35, maxTokens: 85, guide: '1-2 sentences, under 35 words total.' },
+  medium: { minSent: 3, maxSent: 4, maxWords: 70, maxTokens: 160, guide: '3-4 sentences, 45-70 words total.' },
   detailed: { minSent: 5, maxSent: 7, maxWords: 130, maxTokens: 260, guide: '5-7 sentences, 90-130 words total.' },
 };
 
@@ -330,7 +330,7 @@ export class ReviewsService {
     private prisma: PrismaService,
     private configService: ConfigService,
     private notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   private getClientAndModel(): { client: OpenAI | null; model: string; provider: string } {
     const geminiKey = (this.configService.get<string>('GEMINI_API_KEY') || '').trim();
@@ -579,7 +579,7 @@ Do NOT begin like any of these: ${recentOpenings.join(' | ') || 'n/a'}`;
           .catch((err) => {
             this.logger.error(
               'Failed to dispatch negative feedback alert: ' +
-                (err instanceof Error ? err.message : String(err)),
+              (err instanceof Error ? err.message : String(err)),
             );
           });
       }

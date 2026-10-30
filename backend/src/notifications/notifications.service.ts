@@ -78,8 +78,18 @@ export class NotificationsService {
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const dashboardUrl = `${frontendUrl}/dashboard`;
 
+    const escapeHtml = (str: string): string =>
+      str.replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[c] || c));
+
     const starsDisplay = '⭐'.repeat(Math.max(1, Math.min(5, rating)));
-    const subject = `${rating}-Star Customer Feedback for ${businessName}`;
+    // Strip CR/LF to prevent SMTP subject header injection
+    const subject = `${rating}-Star Customer Feedback for ${businessName}`.replace(/[\r\n]+/g, ' ').trim();
 
     const tagsList =
       selectedTags && selectedTags.length > 0
@@ -88,6 +98,24 @@ export class NotificationsService {
 
     const customerMessage = message?.trim() || 'No additional written message provided.';
     const customerContact = contactInfo?.trim() || 'No contact details provided';
+
+    // Strict validation for contact links (prevents attribute breakout / javascript / mailto injection)
+    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const PHONE_REGEX = /^\+?[0-9\s\-()]{7,20}$/;
+
+    let safeContactHtml = '<span style="color:#94a3b8; font-weight:400;">Not provided</span>';
+    if (contactInfo && contactInfo.trim()) {
+      const trimmedContact = contactInfo.trim();
+      const escapedContact = escapeHtml(trimmedContact);
+      if (EMAIL_REGEX.test(trimmedContact)) {
+        safeContactHtml = `<a href="mailto:${encodeURIComponent(trimmedContact)}" style="color:#0d9488; text-decoration:none; font-weight:650;">${escapedContact}</a>`;
+      } else if (PHONE_REGEX.test(trimmedContact)) {
+        const cleanPhone = trimmedContact.replace(/[^0-9+]/g, '');
+        safeContactHtml = `<a href="tel:${cleanPhone}" style="color:#0d9488; text-decoration:none; font-weight:650;">${escapedContact}</a>`;
+      } else {
+        safeContactHtml = `<span style="color:#334155; font-weight:500;">${escapedContact}</span>`;
+      }
+    }
 
     const { transporter, fromEmail } = this.getTransporter();
 
@@ -105,14 +133,14 @@ Resolve this issue quickly in your dashboard:
 ${dashboardUrl}
 `;
 
-    // Modern HTML email template
+    // Modern HTML email template with strict entity escaping
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>${escapeHtml(subject)}</title>
 </head>
 
 <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#1e293b;">
@@ -160,8 +188,8 @@ ${dashboardUrl}
               </h1>
 
               <p style="margin:0 0 28px; font-size:14px; line-height:1.8; color:#64748b;">
-                Hello ${ownerName || 'Business Owner'}, a customer has shared feedback about their experience at
-                <strong style="color:#102a43;">${businessName}</strong> and given a rating below 4 stars.
+                Hello ${escapeHtml(ownerName || 'Business Owner')}, a customer has shared feedback about their experience at
+                <strong style="color:#102a43;">${escapeHtml(businessName)}</strong> and given a rating below 4 stars.
                 Review their feedback and follow up where appropriate.
               </p>
 
@@ -197,7 +225,7 @@ ${dashboardUrl}
                     Tags selected
                   </td>
                   <td valign="top" style="padding:15px 0; border-bottom:1px solid #e2e8f0; font-size:14px; line-height:1.7; font-weight:500; color:#334155; overflow-wrap:anywhere;">
-                    ${tagsList}
+                    ${escapeHtml(tagsList)}
                   </td>
                 </tr>
 
@@ -206,7 +234,7 @@ ${dashboardUrl}
                     Customer contact
                   </td>
                   <td valign="top" style="padding:15px 0; border-bottom:1px solid #e2e8f0; font-size:14px; line-height:1.7; font-weight:500; overflow-wrap:anywhere;">
-                    ${contactInfo ? `<a href="${contactInfo.includes('@') ? 'mailto:' : 'tel:'}${customerContact}" style="color:#0d9488; text-decoration:none; font-weight:650;">${customerContact}</a>` : '<span style="color:#94a3b8; font-weight:400;">Not provided</span>'}
+                    ${safeContactHtml}
                   </td>
                 </tr>
 
@@ -220,7 +248,7 @@ ${dashboardUrl}
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:30px; background-color:#f8fafc; border:1px solid #e2e8f0; border-left:4px solid #14b8a6; border-radius:10px;">
                 <tr>
                   <td style="padding:20px 18px; font-size:14px; line-height:1.8; color:#334155; overflow-wrap:anywhere;">
-                    <span style="color:#0d9488; font-size:22px; font-weight:800;">&ldquo;</span>${customerMessage}<span style="color:#0d9488; font-size:22px; font-weight:800;">&rdquo;</span>
+                    <span style="color:#0d9488; font-size:22px; font-weight:800;">&ldquo;</span>${escapeHtml(customerMessage)}<span style="color:#0d9488; font-size:22px; font-weight:800;">&rdquo;</span>
                   </td>
                 </tr>
               </table>
@@ -308,10 +336,22 @@ ${dashboardUrl}
       }
     }
 
-    // 2. Development Mode Simulation Banner (when SMTP_PASS is empty)
+    // 2. Development Mode Simulation Banner (when SMTP credentials are not set)
+    if (this.configService.get<string>('NODE_ENV') === 'production') {
+      this.logger.warn(
+        `[Notifications] SMTP is not configured in production. Feedback alert for business [${businessName}] could not be dispatched.`,
+      );
+      return false;
+    }
+
+    const maskedContact =
+      customerContact.length > 5
+        ? `${customerContact.slice(0, 3)}***`
+        : '***';
+
     this.logger.log(`
 ================================================================================
-[REVORA SMTP REAL-TIME ALERT SIMULATION] (Dev Mode: Set SMTP_PASS in backend/.env to send live emails)
+[REVORA SMTP REAL-TIME ALERT SIMULATION] (Dev Mode: Set SMTP_PASS in backend/.env)
 --------------------------------------------------------------------------------
 From:        ${fromEmail}
 To:          ${ownerEmail} (${ownerName || 'Business Owner'})
@@ -319,8 +359,7 @@ Business:    ${businessName}
 Subject:     ${subject}
 Rating:      ${starsDisplay} (${rating}/5 Stars)
 Tags:        ${tagsList}
-Contact:     ${customerContact}
-Message:     "${customerMessage}"
+Contact:     ${maskedContact}
 Dashboard:   ${dashboardUrl}
 ================================================================================
 `);
