@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2, ArrowRight, AlertCircle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 interface LoginFormProps {
@@ -30,48 +29,29 @@ export default function LoginForm({ redirectTo, urlError }: LoginFormProps) {
 
     startTransition(async () => {
       try {
-        const supabase = createClient()
-
-        const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+          }),
+          credentials: 'include',
         })
 
-        if (signInError) {
-          if (
-            signInError.message.includes('Invalid login credentials') ||
-            signInError.message.includes('invalid_credentials')
-          ) {
-            setError('Incorrect email or password. Please try again.')
-          } else if (signInError.message.includes('Email not confirmed')) {
-            setError('Please confirm your email address before signing in.')
-          } else if (signInError.message.includes('Too many requests')) {
-            setError('Too many login attempts. Please wait a moment and try again.')
-          } else {
-            setError(signInError.message)
-          }
+        const json = await res.json()
+
+        if (!res.ok) {
+          setError(json.message || json.error || 'Incorrect email or password. Please try again.')
           return
         }
 
-        if (!authData.user) { setError('Sign in failed. Please try again.'); return }
-
-        const { data: profileRow, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', authData.user.id)
-          .single()
-
-        if (profileError || !profileRow) {
-          setError('Account profile not found. Please contact support.')
-          return
-        }
-
-        const profile = profileRow as unknown as { role: string }
+        const role = json.data?.user?.role || json.data?.profile?.role || 'business_owner'
 
         const destination =
           redirectTo && redirectTo.startsWith('/')
             ? redirectTo
-            : profile.role === 'super_admin'
+            : role === 'super_admin'
             ? '/admin'
             : '/dashboard'
 

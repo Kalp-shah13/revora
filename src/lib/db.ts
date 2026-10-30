@@ -1,235 +1,208 @@
 /**
- * Typed DB helpers — thin wrappers around Supabase queries.
- * All functions are server-side only.
- * Using explicit type assertions here once so the rest of the app stays clean.
+ * Typed Data helpers for Next.js Server Components.
+ * Fetches data from the standalone NestJS backend.
  */
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers';
 import type {
   Business,
   ServiceTag,
-  QrScan,
-  Review,
   Feedback,
-  Profile,
-} from '@/types'
+} from '@/types';
 
-// Re-usable Supabase client type (works with both anon and service-role)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = SupabaseClient<any>
+const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || 'http://localhost:4000/api/v1';
 
-// ─── Profiles ───────────────────────────────────────────────────────────────
-
-export async function getProfileById(
-  db: AnyClient,
-  id: string
-): Promise<Profile | null> {
-  const { data, error } = await db
-    .from('profiles')
-    .select('id, full_name, role, created_at')
-    .eq('id', id)
-    .single()
-  if (error || !data) return null
-  return data as Profile
+/**
+ * Helper to extract the access_token from incoming request cookies
+ * so Server Components can call authenticated backend APIs.
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('access_token')?.value;
+    if (token) {
+      return {
+        Cookie: `access_token=${token}`,
+        Authorization: `Bearer ${token}`,
+      };
+    }
+  } catch {
+    // In contexts where cookies() is not available (e.g. static generation)
+  }
+  return {};
 }
 
 // ─── Businesses ──────────────────────────────────────────────────────────────
 
 export async function getBusinessBySlug(
-  db: AnyClient,
-  slug: string
+  _client: any,
+  slug: string,
 ): Promise<Business | null> {
-  const { data, error } = await db
-    .from('businesses')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_active', true)
-    .single()
-  if (error || !data) return null
-  return data as Business
-}
-
-export async function getBusinessByOwnerId(
-  db: AnyClient,
-  ownerId: string
-): Promise<Business | null> {
-  const { data, error } = await db
-    .from('businesses')
-    .select('*')
-    .eq('owner_id', ownerId)
-    .single()
-  if (error || !data) return null
-  return data as Business
-}
-
-export async function getAllBusinesses(db: AnyClient): Promise<Business[]> {
-  const { data } = await db
-    .from('businesses')
-    .select('*')
-    .order('created_at', { ascending: false })
-  return (data ?? []) as Business[]
-}
-
-export async function insertBusiness(
-  db: AnyClient,
-  values: Omit<Business, 'id' | 'created_at'>
-): Promise<Business | null> {
-  const { data, error } = await db
-    .from('businesses')
-    .insert(values)
-    .select()
-    .single()
-  if (error) throw error
-  return data as Business
-}
-
-export async function updateBusiness(
-  db: AnyClient,
-  id: string,
-  values: Partial<Omit<Business, 'id' | 'created_at'>>
-): Promise<Business | null> {
-  const { data, error } = await db
-    .from('businesses')
-    .update(values)
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) throw error
-  return data as Business
-}
-
-// ─── Service Tags ─────────────────────────────────────────────────────────────
-
-export async function getServiceTags(
-  db: AnyClient,
-  businessId: string
-): Promise<ServiceTag[]> {
-  const { data } = await db
-    .from('service_tags')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: true })
-  return (data ?? []) as ServiceTag[]
-}
-
-export async function insertServiceTag(
-  db: AnyClient,
-  values: Omit<ServiceTag, 'id' | 'created_at'>
-): Promise<ServiceTag> {
-  const { data, error } = await db
-    .from('service_tags')
-    .insert(values)
-    .select()
-    .single()
-  if (error) throw error
-  return data as ServiceTag
-}
-
-export async function deleteServiceTag(
-  db: AnyClient,
-  id: string,
-  businessId: string
-): Promise<void> {
-  const { error } = await db
-    .from('service_tags')
-    .delete()
-    .eq('id', id)
-    .eq('business_id', businessId)
-  if (error) throw error
-}
-
-// ─── QR Scans ────────────────────────────────────────────────────────────────
-
-export async function insertQrScan(
-  db: AnyClient,
-  values: { business_id: string; user_agent?: string | null }
-): Promise<void> {
-  const { error } = await db.from('qr_scans').insert(values)
-  if (error) throw error
-}
-
-export async function getScanCounts(
-  db: AnyClient,
-  businessId: string
-): Promise<{
-  total: number
-  today: number
-  week: number
-  month: number
-}> {
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-
-  const [total, today, week, month] = await Promise.all([
-    db.from('qr_scans').select('id', { count: 'exact', head: true }).eq('business_id', businessId),
-    db.from('qr_scans').select('id', { count: 'exact', head: true }).eq('business_id', businessId).gte('scanned_at', startOfToday),
-    db.from('qr_scans').select('id', { count: 'exact', head: true }).eq('business_id', businessId).gte('scanned_at', startOfWeek),
-    db.from('qr_scans').select('id', { count: 'exact', head: true }).eq('business_id', businessId).gte('scanned_at', startOfMonth),
-  ])
-
-  return {
-    total: total.count ?? 0,
-    today: today.count ?? 0,
-    week: week.count ?? 0,
-    month: month.count ?? 0,
+  try {
+    const res = await fetch(`${BACKEND_URL}/business/${slug}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json?.data?.business as Business) ?? null;
+  } catch (error) {
+    console.error('[getBusinessBySlug] Error fetching from NestJS:', error);
+    return null;
   }
 }
 
-// ─── Reviews ─────────────────────────────────────────────────────────────────
+export async function getServiceTags(
+  _client: any,
+  businessId: string,
+): Promise<ServiceTag[]> {
+  try {
+    const headers = await getAuthHeaders();
+    // 1. Try public tag endpoint
+    const res = await fetch(`${BACKEND_URL}/tags/business/${businessId}`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return (json?.data as ServiceTag[]) ?? [];
+    }
 
-export async function insertReview(
-  db: AnyClient,
-  values: Omit<Review, 'id' | 'created_at'>
-): Promise<void> {
-  const { error } = await db.from('reviews').insert(values)
-  if (error) throw error
+    // 2. Fallback to admin tag endpoint
+    const adminRes = await fetch(`${BACKEND_URL}/admin/businesses/${businessId}/tags`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (adminRes.ok) {
+      const json = await adminRes.json();
+      return (json?.data as ServiceTag[]) ?? [];
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[getServiceTags] Error fetching from NestJS:', error);
+    return [];
+  }
 }
 
-export async function getReviews(
-  db: AnyClient,
-  businessId: string
-): Promise<Review[]> {
-  const { data } = await db
-    .from('reviews')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: false })
-  return (data ?? []) as Review[]
+export async function getBusinessByOwnerId(
+  _client: any,
+  ownerId: string,
+  businessId?: string,
+): Promise<Business | null> {
+  try {
+    const headers = await getAuthHeaders();
+    const query = businessId ? `?businessId=${encodeURIComponent(businessId)}` : '';
+
+    // 1. Query business directly by ownerId
+    const res = await fetch(`${BACKEND_URL}/business/by-owner/${ownerId}${query}`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json?.data) return json.data as Business;
+    }
+
+    // 2. Query business for currently authenticated user session
+    const mineRes = await fetch(`${BACKEND_URL}/business/mine${query}`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (mineRes.ok) {
+      const json = await mineRes.json();
+      if (json?.data) return json.data as Business;
+    }
+
+    // 3. Fallback for super_admin session: inspect all businesses
+    const adminRes = await fetch(`${BACKEND_URL}/admin/businesses`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (adminRes.ok) {
+      const json = await adminRes.json();
+      const list = (json?.data as Business[]) ?? [];
+      if (businessId) {
+        return list.find((b: any) => b.id === businessId) ?? null;
+      }
+      return list.find((b: any) => b.owner_id === ownerId || b.id === ownerId) ?? null;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[getBusinessByOwnerId] Error fetching from NestJS:', error);
+    return null;
+  }
 }
 
-// ─── Feedback ────────────────────────────────────────────────────────────────
+export async function getBusinessesByOwnerId(
+  _client: any,
+  ownerId?: string,
+): Promise<Business[]> {
+  try {
+    const headers = await getAuthHeaders();
 
-export async function insertFeedback(
-  db: AnyClient,
-  values: Omit<Feedback, 'id' | 'created_at'>
-): Promise<void> {
-  const { error } = await db.from('feedback').insert(values)
-  if (error) throw error
+    // 1. Query all businesses owned by this session
+    const res = await fetch(`${BACKEND_URL}/business/my-list`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json?.data) && json.data.length > 0) {
+        return json.data as Business[];
+      }
+    }
+
+    // 2. Fallback to admin businesses endpoint
+    const adminRes = await fetch(`${BACKEND_URL}/admin/businesses`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (adminRes.ok) {
+      const json = await adminRes.json();
+      const list = (json?.data as Business[]) ?? [];
+      if (ownerId) {
+        return list.filter((b: any) => b.owner_id === ownerId || b.id === ownerId);
+      }
+      return list;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[getBusinessesByOwnerId] Error fetching from NestJS:', error);
+    return [];
+  }
 }
 
 export async function getFeedback(
-  db: AnyClient,
-  businessId: string
-): Promise<Feedback[]> {
-  const { data } = await db
-    .from('feedback')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: false })
-  return (data ?? []) as Feedback[]
-}
-
-export async function updateFeedbackStatus(
-  db: AnyClient,
-  id: string,
+  _client: any,
   businessId: string,
-  status: 'open' | 'resolved'
-): Promise<void> {
-  const { error } = await db
-    .from('feedback')
-    .update({ status })
-    .eq('id', id)
-    .eq('business_id', businessId)
-  if (error) throw error
+): Promise<Feedback[]> {
+  try {
+    const headers = await getAuthHeaders();
+
+    // 1. Try by-business endpoint
+    const res = await fetch(`${BACKEND_URL}/dashboard/feedback/by-business/${businessId}`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return (json?.data as Feedback[]) ?? [];
+    }
+
+    // 2. Try owner dashboard feedback endpoint
+    const ownerRes = await fetch(`${BACKEND_URL}/dashboard/feedback`, {
+      headers,
+      cache: 'no-store',
+    });
+    if (ownerRes.ok) {
+      const json = await ownerRes.json();
+      return (json?.data as Feedback[]) ?? [];
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[getFeedback] Error fetching from NestJS:', error);
+    return [];
+  }
 }

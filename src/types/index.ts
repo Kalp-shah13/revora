@@ -27,6 +27,7 @@ export interface GenerateReviewRequest {
   business_id: string
   business_name: string
   selected_tags: string[]
+  rating?: number
 }
 
 export interface GenerateReviewResponse {

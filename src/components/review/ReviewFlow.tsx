@@ -7,7 +7,8 @@
  * Negative path (rating 1–3): private FeedbackForm
  */
 import { useState, useEffect } from 'react'
-import { Heart, ExternalLink } from 'lucide-react'
+import { Heart, ExternalLink, Copy, Check, Sparkles } from 'lucide-react'
+import { copyToClipboard } from '@/lib/utils'
 import StarRating from './StarRating'
 import FeedbackForm from './FeedbackForm'
 import ReviewBuilder from './ReviewBuilder'
@@ -36,23 +37,60 @@ export default function ReviewFlow({
   initialRating,
 }: ReviewFlowProps) {
   const [stage, setStage] = useState<Stage>(() => {
-    // If a valid pre-selected rating is provided, skip the rating step
+    // If a valid pre-selected rating is provided, start directly at building
     if (initialRating && initialRating >= 1 && initialRating <= 5) {
-      return initialRating >= 4 ? 'building' : 'feedback'
+      return 'building'
     }
     return 'rating'
   })
 
   const [rating, setRating] = useState<number>(initialRating ?? 0)
   const [chosenReview, setChosenReview] = useState('')
+  const [copied, setCopied] = useState(false)
 
-  // Log scan on mount (fire-and-forget)
+  async function handleCopyReview() {
+    if (!chosenReview) return
+    const ok = await copyToClipboard(chosenReview)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  // Log scan on mount with deduplication (30-minute window per business)
   useEffect(() => {
-    fetch('/api/scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ business_id: businessId }),
-    }).catch(() => {})
+    if (!businessId || typeof window === 'undefined') return
+
+    try {
+      const storageKey = `revora_scan_${businessId}`
+      const lastScan = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey)
+      const now = Date.now()
+
+      // If scanned within the last 30 minutes (1,800,000 ms), deduplicate
+      if (lastScan) {
+        const lastScanTime = parseInt(lastScan, 10)
+        if (!isNaN(lastScanTime) && now - lastScanTime < 30 * 60 * 1000) {
+          return
+        }
+      }
+
+      // Record fresh scan timestamp
+      sessionStorage.setItem(storageKey, String(now))
+      localStorage.setItem(storageKey, String(now))
+
+      fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_id: businessId }),
+      }).catch(() => {})
+    } catch {
+      // Fallback if localStorage is disabled/restricted
+      fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_id: businessId }),
+      }).catch(() => {})
+    }
   }, [businessId])
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -60,13 +98,16 @@ export default function ReviewFlow({
   function handleRatingSelect(r: number) {
     setRating(r)
     setTimeout(() => {
-      setStage(r >= 4 ? 'building' : 'feedback')
+      // All ratings 1, 2, 3, 4, 5 go to building to suggest options and draft text
+      setStage('building')
     }, 300)
   }
 
   function handleBuildComplete(text: string) {
     setChosenReview(text)
-    setStage('done')
+    const effectiveRating = rating || initialRating || 5
+    // 4-5 stars go to celebration (Google review submitted), <= 3 stars go to thankyou (private team feedback)
+    setStage(effectiveRating >= 4 ? 'done' : 'thankyou')
   }
 
   // ── Stages ───────────────────────────────────────────────────────────────
@@ -124,33 +165,56 @@ export default function ReviewFlow({
           {/* Outer soft circle */}
           <div className="w-28 h-28 rounded-full bg-blue-50 flex items-center justify-center">
             {/* Inner circle */}
-            <div className="w-20 h-20 rounded-full bg-white shadow-md flex items-center justify-center text-5xl select-none">
-              🎉
+            <div className="w-20 h-20 rounded-full bg-white shadow-md flex items-center justify-center select-none">
+              <Sparkles className="w-10 h-10 text-amber-500" />
             </div>
           </div>
         </div>
 
-        {/* ── "Review submitted" pill ── */}
-        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-4 py-1.5 shadow-sm mb-5">
-          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block animate-pulse" aria-hidden="true" />
-          <span className="text-xs font-semibold text-slate-600 tracking-wide">Review submitted</span>
+        {/* ── Status pill ── */}
+        <div className="flex items-center gap-1.5 bg-white border border-green-200 rounded-full px-4 py-1.5 shadow-sm mb-5">
+          <span className="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse" aria-hidden="true" />
+          <span className="text-xs font-semibold text-green-800 tracking-wide">Review copied to clipboard</span>
         </div>
 
         {/* ── Heading ── */}
         <h2 className="text-2xl font-extrabold text-slate-900 leading-tight mb-2">
-          Thank you for your review!
+          Thank you for your support!
         </h2>
-        <p className="text-sm text-slate-500 max-w-xs mx-auto mb-6 leading-relaxed">
-          Your kind words help others discover this place on Google.
+        <p className="text-sm text-slate-500 max-w-xs mx-auto mb-5 leading-relaxed">
+          Your feedback makes a huge difference for {businessName}.
         </p>
 
-        {/* ── "One more step" banner ── */}
+        {/* ── Copied Draft Snippet with Re-copy action ── */}
+        {chosenReview && (
+          <div className="w-full max-w-sm rounded-2xl bg-white border border-slate-200 p-4 text-left mb-5 shadow-sm space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Your Review Draft</span>
+              <button
+                type="button"
+                onClick={handleCopyReview}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 py-0.5 px-2 rounded-md hover:bg-blue-50 transition-colors"
+              >
+                {copied ? (
+                  <><Check className="h-3.5 w-3.5 text-green-600" /><span className="text-green-600">Copied!</span></>
+                ) : (
+                  <><Copy className="h-3.5 w-3.5" /><span>Copy again</span></>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed italic bg-slate-50 p-3 rounded-xl border border-slate-100 line-clamp-4">
+              &ldquo;{chosenReview}&rdquo;
+            </p>
+          </div>
+        )}
+
+        {/* ── "Final Step" banner ── */}
         <div className="w-full max-w-sm rounded-2xl bg-green-50 border border-green-200 px-5 py-4 text-left mb-6">
-          <p className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">
-            One more step
+          <p className="text-xs font-bold text-green-800 uppercase tracking-widest mb-1">
+            Final step on Google
           </p>
-          <p className="text-sm text-green-800 leading-relaxed">
-            Your review was copied to clipboard. Head to Google and paste it to complete your review.
+          <p className="text-sm text-green-900 leading-relaxed">
+            Head to Google, select <strong>5 Stars</strong>, and paste your review text into the box to publish it.
           </p>
         </div>
 
@@ -207,7 +271,7 @@ export default function ReviewFlow({
             We appreciate your honesty. We&apos;ll use your feedback to make things right.
           </p>
         </div>
-        <p className="text-xs text-slate-400">We&apos;ll make it right 💪</p>
+        <p className="text-xs text-slate-500 font-medium">We will make it right.</p>
       </div>
     )
   }

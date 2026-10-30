@@ -12,17 +12,18 @@ interface DashboardTabsProps {
   feedback: Feedback[]
   tags: ServiceTag[]
   openCount: number
+  businessId?: string
 }
 
 const TABS = [
-  { id: 'feedback', label: 'Feedback', icon: MessageSquare },
-  { id: 'tags',     label: 'Tags',     icon: Tag           },
-  { id: 'qr',       label: 'QR Code',  icon: QrCode        },
+  { id: 'feedback', label: 'Feedback',    icon: MessageSquare },
+  { id: 'tags',     label: 'Tags',        icon: Tag           },
+  { id: 'qr',       label: 'QR & Stands', icon: QrCode        },
 ] as const
 
 type TabId = typeof TABS[number]['id']
 
-export default function DashboardTabs({ feedback, tags, openCount }: DashboardTabsProps) {
+export default function DashboardTabs({ feedback, tags, openCount, businessId }: DashboardTabsProps) {
   const [active, setActive] = useState<TabId>('feedback')
 
   const activeTab = TABS.find(t => t.id === active)!
@@ -91,9 +92,7 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
         className="animate-fade-in-up dashboard-card rounded-2xl overflow-hidden"
       >
         {/* Card header with colored accent */}
-        <div className={cn(
-          'px-4 sm:px-5 pt-4 sm:pt-5 pb-3.5 border-b border-slate-800/60 flex items-center gap-3',
-        )}>
+        <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3.5 border-b border-slate-200 flex items-center gap-3">
           <div className={cn(
             'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
             'bg-blue-600/10 border border-blue-600/20',
@@ -104,12 +103,12 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
             <h3 className="text-sm font-semibold dark:text-white text-slate-900">
               {active === 'feedback' && 'Private Feedback'}
               {active === 'tags'     && 'Service Tags'}
-              {active === 'qr'       && 'Your QR Code'}
+              {active === 'qr'       && 'QR Codes & Marketing Stands'}
             </h3>
             <p className="text-xs dark:text-slate-500 text-slate-400 mt-0.5">
               {active === 'feedback' && '1–3 star responses visible only to you — never posted publicly'}
               {active === 'tags'     && 'Appear on your review page for customers to select (up to 3)'}
-              {active === 'qr'       && 'Display at your location — customers scan to leave a review'}
+              {active === 'qr'       && 'Print acrylic desk stands, table tents & QR codes for your physical location'}
             </p>
           </div>
         </div>
@@ -117,8 +116,8 @@ export default function DashboardTabs({ feedback, tags, openCount }: DashboardTa
         {/* Content */}
         <div className="px-4 sm:px-5 py-4 sm:py-5">
           {active === 'feedback' && <FeedbackInbox items={feedback} />}
-          {active === 'tags'     && <TagsManager tags={tags} />}
-          {active === 'qr'       && <QRCodeDisplay />}
+          {active === 'tags'     && <TagsManager tags={tags} businessId={businessId} />}
+          {active === 'qr'       && <QRCodeDisplay businessId={businessId} />}
         </div>
       </div>
     </div>

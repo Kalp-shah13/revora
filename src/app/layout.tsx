@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/shared/ThemeProvider'
+import '@/lib/performance-patch'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'ReviewFlow AI',
+  title: 'Revora — AI Review & Reputation Platform',
   description:
     'Collect more Google reviews and privately capture negative feedback — powered by AI.',
   icons: {
@@ -23,24 +24,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased dark" suppressHydrationWarning>
-      <head>
-        {/* Inline script — runs before paint to set correct class & avoid flash */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var t = localStorage.getItem('rf-theme') || 'dark';
-                  var root = document.documentElement;
-                  root.classList.remove('dark', 'light');
-                  root.classList.add(t);
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
+    <html lang="en" className="h-full antialiased light" suppressHydrationWarning>
       <body className="min-h-full bg-background text-foreground font-body">
         <ThemeProvider>
           {children}

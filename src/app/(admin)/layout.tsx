@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { getAuthUser } from '@/lib/auth'
 import TopNav from '@/components/shared/TopNav'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const auth = await getAuthUser()
 

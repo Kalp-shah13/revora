@@ -3,7 +3,6 @@ import Image from 'next/image'
 import { Star } from 'lucide-react'
 import ReviewFlow from '@/components/review/ReviewFlow'
 import { getBusinessBySlug, getServiceTags } from '@/lib/db'
-import { createServiceRoleClient } from '@/lib/supabase/service'
 
 interface ReviewPageProps {
   params: Promise<{ slug: string }>
@@ -14,11 +13,10 @@ export default async function ReviewPage({ params, searchParams }: ReviewPagePro
   const { slug } = await params
   const sp = await searchParams
 
-  const supabase = createServiceRoleClient()
-  const business = await getBusinessBySlug(supabase, slug)
+  const business = await getBusinessBySlug(null, slug)
   if (!business) notFound()
 
-  const tags = await getServiceTags(supabase, business.id)
+  const tags = await getServiceTags(null, business.id)
   const accentColor = business.accent_color || '#2563eb'
 
   const ratingParam = sp?.rating
@@ -130,7 +128,7 @@ export default async function ReviewPage({ params, searchParams }: ReviewPagePro
 
       {/* Footer */}
       <footer className="py-4 text-center">
-        <p className="text-xs text-slate-400">Powered by GleamAI</p>
+        <p className="text-xs text-slate-400">Powered by Revora</p>
       </footer>
     </div>
   )
