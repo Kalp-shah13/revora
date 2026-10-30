@@ -246,7 +246,12 @@ export class BusinessesService {
     }
 
     const googleValidation = validateAndNormalizeGoogleReviewLink(dto.google_review_link);
-    const normalizedLink = googleValidation.normalizedUrl || dto.google_review_link.trim();
+    if (!googleValidation.isValid || !googleValidation.normalizedUrl) {
+      throw new BadRequestException(
+        googleValidation.error || 'Invalid Google review link or Place ID',
+      );
+    }
+    const normalizedLink = googleValidation.normalizedUrl;
 
     const business = await this.prisma.business.create({
       data: {
@@ -309,7 +314,12 @@ export class BusinessesService {
     let normalizedGoogleLink: string | undefined;
     if (dto.google_review_link !== undefined) {
       const googleValidation = validateAndNormalizeGoogleReviewLink(dto.google_review_link);
-      normalizedGoogleLink = googleValidation.normalizedUrl || dto.google_review_link.trim();
+      if (!googleValidation.isValid || !googleValidation.normalizedUrl) {
+        throw new BadRequestException(
+          googleValidation.error || 'Invalid Google review link or Place ID',
+        );
+      }
+      normalizedGoogleLink = googleValidation.normalizedUrl;
     }
 
     const updated = await this.prisma.business.update({

@@ -1,18 +1,33 @@
 import { PrismaClient, Role, Plan, TagType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as dotenv from 'dotenv';
+
+// Automatically load .env file variables into process.env
+dotenv.config();
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting Prisma seeding...');
+  const currentEnv = (process.env.NODE_ENV || 'development').trim().toLowerCase();
+  if (currentEnv === 'production' || currentEnv === 'prod') {
+    console.error('❌ FATAL: Database seeding is strictly disabled when NODE_ENV="production"!');
+    process.exit(1);
+  }
 
-  // 1. Create Super Admin
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  console.log('🌱 Starting Prisma seeding in development mode...');
+
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@revora.com';
+  const adminRawPassword = process.env.SEED_ADMIN_PASSWORD || 'DevAdmin#2026!Secure';
+  const ownerEmail = process.env.SEED_OWNER_EMAIL || 'owner@revora.com';
+  const ownerRawPassword = process.env.SEED_OWNER_PASSWORD || 'DevOwner#2026!Secure';
+
+  // 1. Create Super Admin (cost factor 12)
+  const adminPassword = await bcrypt.hash(adminRawPassword, 12);
   const superAdmin = await prisma.user.upsert({
-    where: { email: 'admin@revora.com' },
-    update: {},
+    where: { email: adminEmail.toLowerCase() },
+    update: { passwordHash: adminPassword },
     create: {
-      email: 'admin@revora.com',
+      email: adminEmail.toLowerCase(),
       passwordHash: adminPassword,
       fullName: 'Super Admin',
       role: Role.SUPER_ADMIN,
@@ -21,14 +36,14 @@ async function main() {
   console.log('👤 Super Admin ready:', superAdmin.email);
 
   // 2. Create Business Owner
-  const ownerPassword = await bcrypt.hash('password123', 10);
+  const ownerPassword = await bcrypt.hash(ownerRawPassword, 12);
   const businessOwner = await prisma.user.upsert({
-    where: { email: 'shah134.kalp@gmail.com' },
-    update: {},
+    where: { email: ownerEmail.toLowerCase() },
+    update: { passwordHash: ownerPassword },
     create: {
-      email: 'shah134.kalp@gmail.com',
+      email: ownerEmail.toLowerCase(),
       passwordHash: ownerPassword,
-      fullName: 'Kalp Shah',
+      fullName: 'Demo Business Owner',
       role: Role.BUSINESS_OWNER,
     },
   });

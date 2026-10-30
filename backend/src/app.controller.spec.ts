@@ -1,6 +1,6 @@
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import { AppController } from './app.controller';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -8,15 +8,18 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
     }).compile();
 
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe('health check', () => {
+    it('should return health status ok for Revora Backend API', () => {
+      const res = appController.getHealth();
+      expect(res.status).toBe('ok');
+      expect(res.service).toBe('Revora Backend API');
+      expect(res.timestamp).toBeDefined();
     });
   });
 });
+
